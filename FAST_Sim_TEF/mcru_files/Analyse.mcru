@@ -1,0 +1,137 @@
+-----  MCrunch v1.00.00 Input File  -------------------------------------------
+Test #06 (+Names, -Chans, -CC, -TSp, +Stats, -SwT, -SwX, -SF, -EE, +Bins, +Bp, -PDF, -PDFp, +PSD, +PSDp, +PSDtxt, +PSDxls, -F, -FBR, -FBM, -DEL, -CF, -FwDELt, -FwDELx, -FwRFt, -FwRFx, -FpBC, -FpPE, -FpCC, -FpRM, +Multi).
+-----  Job Options  ------------------------------------------------------------
+false             EchoInp           Echo input to <rootname>.echo as this file is being read.
+true              StrNames          Use channel names following a "$" instead of numbers when specifying channels in this input file.
+false             OutData           Output modified data array after scaling and calculated channels. (currently unavailable)
+"%11.3e"          RealFmt           Format for outputting floating-point values.
+"Analyse"         AggRoot           Root name for aggregate output files.
+-----  Input-Data Layout  ------------------------------------------------------
+5                 TitleLine         The row with the file title on it (zero if no title is available).
+7                 NamesLine         The row with the channel names on it (zero if no names are available or are specified below).
+8                 UnitsLine         The row with the channel units on it (zero if no units are available or are specified below).
+9                 FirstDataLine     The first row of data.
+0                 TotLines          The total number of data lines in all files.  Set to a non-zero value to improve speed and reduce memory usage.  Set to zero to let MatLab determine it.
+0                 NumChans:         The number of channels in each input file.
+ChanTitle  ChanUnits    Scale  Offset     NumCols rows of data follow.  Title and units strings must be 10 characters or less.
+-----  Filtering  --------------------------------------------------------------
+-----  Calculated Channels  ----------------------------------------------------
+0                 NumCChan          The number calculated channels to generate.
+1234567890        Seed              The integer seed for the random number generator (-2,147,483,648 to 2,147,483,647).
+Col_Title   Units    Equation       Put each field in quotes.  Titles and units are limited to 10 characters.  NumCChan rows of data follow.
+-----  Generic Plot Information  -----------------------------------------------
+1.5               LineWidth         The width of curves on the plots.
+210               FigLeftPos        The number of pixels from the left side of the screen to the left side of the figures.
+100               FigBottomPos      The number of pixels from the bottom of the screen to the bottom of the figures.
+776               FigWidth          The horizontal width of the figures in pixels.
+600               FigHeight         The vertical height of the figures in pixels.
+true              FigTitles         Add titles to each figure?
+true              SaveFigs          Save the generated figures in files?
+-----  Time-Series Plots  ------------------------------------------------------
+5                 NumTimeFigs       Number of time-series figures.  Each figure will have one or more subplots.
+FigureName            #Rows      #Cols     Channel list (must number #Rows*#Cols)    (NumTimeFigs rows of data follow)
+"Windgeschwindigkeit in x-Richtung"                  1          1        $Wind1VelX$
+"Blade Root Moment (RootMyc1)"     1          1        $RootMyc1$
+"Tower base pitching (or fore-aft) moment"    1          1       $TwrBsMyt$
+"Tower base roll (or side-to-side) moment"    1          1       $TwrBsMxt$
+"Tower base yaw (or torsional) moment"    1          1       $TwrBsMzt$
+-----  Moving Averages  --------------------------------------------------------
+-----  Time and Wind Speed  ----------------------------------------------------
+$Time$            TimeChan          The channel containing time.
+$Wind1VelX$         WSChan            The primary wind-speed channel (used for mean wind speed and turbulence intensity, 0 for none)
+-----  Load Roses  -------------------------------------------------------------
+-----  Azimuth Averages  -------------------------------------------------------
+-----  Crosstalk Removal -------------------------------------------------------
+-----  Peak Finding  -----------------------------------------------------------
+-----  Statistics and Extreme Events  ------------------------------------------
+true              DoStats           Generate statistics of all the channels.
+false             WrStatsTxt        Write the stats to a text file?
+true             WrStatsXLS        Write the stats to an Excel file?
+1                 NumSFChans        Number of channels that will have summary statistics generated for them.
+$RootMyb1$                 SFChans           List of channels that will have summary statistics generated for them.  Must number NumSFChans.
+0                 NumEETables       Number of tables of extreme events.
+TableName           #Chans    ChanList                #InfoChans     InfoChanList    (NumEETables rows of data follow)
+-----  Binning  ----------------------------------------------------------------
+false             DoBins            Bin selected channels?
+0                 NumDepChans       Number of dependent channels to bin.
+true              UseBinAv          When reporting the location of 1-D bins, use the average values instead of the bin centers.
+true              PltBins           Plot the binned data?
+true              PltRawData        Plot the raw data on top of the binned data if there is only one independent channel?
+true              WrBinsTxt         Write binning results to a plain-text file?
+true              WrBinsXLS         Write binning results to an Excel workbook?
+DepChan  NumDims  IndChan1  BinWid1  IndChan2  BinWid2
+-----  Peak and Valley Listing  ------------------------------------------------
+-----  Probablity Density  -----------------------------------------------------
+false              DoPDFs            Generate PDFs of all channels.
+3                 NumPDFChans       Number of PDF channels.
+28 29 30          PDFChans          List of PDF channels.
+50                NumPDFBins        Number of bins for the PDFs.
+false             WrPDFsTxt         Write PDFs to a plain-text file?
+false             WrPDFsXLS         Write PDFs to an Excel workbook?
+1                 NumPDFFigs        Number of figures for the PDFs.  Each figure will have one or more subplots.
+FigureName            #rows    #columns    Channel list (must number #rows*#columns)    (NumPDFFigs rows of data follow)
+"PDF Moment 1"          1          3       28 29 30
+-----  Power Spectral Density  -------------------------------------------------
+true              DoPSDs            Generate power spectral densities?
+4                 NumPSDChans       Number of PSD channels.
+$RootMyc1$ $TwrBsMyt$ $TwrBsMxt$ $TwrBsMzt$       PSDChans          List of PSD channels.
+false             RmvMean           Remove the mean of the signal(s)?
+true              Detrend           Remove linear trend of the signal(s)?
+true              CosTaper          Add a cosine taper to the ends of the time series?
+"hamming"         WindowType        Type of data window.
+false             IntPSDs           Integrate the PSDs before plotting or writing them to a file?
+false             BinPSDs           Bin the PSDs before plotting or writing them to a file?
+0.1               BinWidth          Width of the PSD bins.
+true              WrXLS             Write the PSDs to an Excel file?
+false             WrTxt             Write the PSDs to a text file?
+4                 NumPSDFigs        Number of figures for the PSDs.  Each figure will have one or more subplots.
+FigureName       #rows    #columns    Channel list (must number #rows*#columns)    (NumPSDFigs rows of data follow)
+"Root Moment 1"    1          1       $RootMyc1$
+"Tower base pitching (or fore-aft) moment"    1          1       $TwrBsMyt$
+"Tower base roll (or side-to-side) moment"    1          1       $TwrBsMxt$
+"Tower base yaw (or torsional) moment"    1          1       $TwrBsMzt$
+-----  Fatigue  ----------------------------------------------------------------
+true              DoFatigue         Do fatigue analysis.
+9                 NumFatChans       The number of rainflow channels.  Next six lines ignored if zero.
+0.0               FiltRatio         The fraction of the maximum range of each channel used as a cutoff range for the racetrack filter.  Use zero for no filter.
+1                 RF_Per            Number of seconds in the rainflow counting period.
+true              BinCycles         Bin the rainflow cycles?
+false             BinMeans          Bin by cycle means in addition to ranges?
+0.5               UCMult            Multiplier for binning unclosed cycles.  (0 discards, 1 counts as a full cycle)
+true              DoSimpDELs        Compute damage-equivalent loads?
+false             DoLife            Do lifetime-related calculations?
+12                RayAverWS         Rayleigh-average wind speed.
+3                 WSmin             Starting value for the wind-speed bins for the Rayleigh distribution.
+2                 WSdel             Delta value for the wind-speed bins for the Rayleigh distribution.
+false             CumFatigue        Generate cycle data as cumulative cycles?
+false              WrRFTxt           Write rainflow data to plain-text files?
+false             WrRFXLS           Write rainflow data to an Excel workbook?
+true              WrDELsTxt         Write DELs to plain-text files?
+true              WrDELsXLS         Write DELs to an Excel workbook?
+true              WrLifeTxt         Write lifetime results to plain-text files?
+true              WrLifeXLS         Write lifetime results to an Excel workbook?
+false              PltBinCyc         Plot binned rainflow cycles?
+false              PltProbExc        Plot probability of exceedance?
+false              PltCumCyc         Plot cumulative rainflow cycles?
+false             PltRngMean        Plot 3-D range and mean binned rainflow cycles?
+true              TblDELs            Generate a HTML table of damage-equivalent loads?
+Channel#  NSlopes  SNslopeLst  BinWidth  TypeLMF     LUlt    BinWidth not used when BinCycles is false. NumChans rows of data follow.  LUlt >> LMF
+$RootMyb1$      1          8         1         0     100000
+$RootMyb2$      1          8         1         0     100000
+$RootMyb3$      1          8         1         0     100000
+$RootMyc1$      1          8         1         0     100000
+$RootMyc2$      1          8         1         0     100000
+$RootMyc3$      1          8         1         0     100000
+$TwrBsMyt$      1          3         1         0     485000
+$TwrBsMxt$      1          3         1         0     485000
+$TwrBsMzt$      1          3         1         0     485000
+1                 NumFatFigs        Number of figures for the rainflow analysis.  Each figure will have one or more subplots.
+FigureName              #rows    #columns    Channel list (must number #rows*#columns)    (NumRFFigs rows of data follow)
+"Blade 1 Root Moment"     1          3        $RootMyb1$ $RootMyb2$ $RootMyb3$
+-----  Statistical Extrapolation  ----------------------------------------------
+-----  Input Files  ------------------------------------------------------------
+x                 NumFiles          The number of input files to read.
+"xxxx.out"
+==EOF==                             DO NOT REMOVE OR CHANGE.  MUST COME JUST AFTER LAST LINE OF VALID INPUT.
+
+

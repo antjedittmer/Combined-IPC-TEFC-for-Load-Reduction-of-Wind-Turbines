@@ -1,0 +1,187 @@
+------- AERODYN v15 for OpenFAST INPUT FILE -----------------------------------------------
+NREL 5.0 MW offshore baseline aerodynamic input properties.
+======  General Options  ============================================================================
+False         Echo               - Echo the input to "<rootname>.AD.ech"?  (flag)
+"default"     DTAero             - Time interval for aerodynamic calculations {or "default"} (s)
+          1   WakeMod            - Type of wake/induction model (switch) {0=none, 1=BEMT, 2=DBEMT, 3=OLAF} [WakeMod cannot be 2 or 3 when linearizing]
+          2   AFAeroMod          - Type of blade airfoil aerodynamics model (switch) {1=steady model, 2=Beddoes-Leishman unsteady model} [AFAeroMod must be 1 when linearizing]
+          1   TwrPotent          - Type tower influence on wind based on potential flow around the tower (switch) {0=none, 1=baseline potential flow, 2=potential flow with Bak correction}
+          0   TwrShadow          - Calculate tower influence on wind based on downstream tower shadow (switch) {0=none, 1=Powles model, 2=Eames model}
+True          TwrAero            - Calculate tower aerodynamic loads? (flag)
+False         FrozenWake         - Assume frozen wake during linearization? (flag) [used only when WakeMod=1 and when linearizing]
+False         CavitCheck         - Perform cavitation check? (flag) [AFAeroMod must be 1 when CavitCheck=true]
+False         CompAA             - Flag to compute AeroAcoustics calculation [used only when WakeMod = 1 or 2]
+"unused"      AA_InputFile       - AeroAcoustics input file [used only when CompAA=true]
+======  Environmental Conditions  ===================================================================
+1.225         AirDens            - Air density (kg/m^3)
+1.464E-05     KinVisc            - Kinematic viscosity of working fluid (m^2/s)
+340.39        SpdSound           - Speed of sound in working fluid (m/s)
+"default"     Patm               - Atmospheric pressure (Pa) [used only when CavitCheck=True]
+"default"     Pvap               - Vapour pressure of working fluid (Pa) [used only when CavitCheck=True]
+======  Blade-Element/Momentum Theory Options  ====================================================== [unused when WakeMod=0 or 3]
+          2   SkewMod            - Type of skewed-wake correction model (switch) {1=uncoupled, 2=Pitt/Peters, 3=coupled} [unused when WakeMod=0 or 3]
+"default"     SkewModFactor      - Constant used in Pitt/Peters skewed wake model {or "default" is 15/32*pi} (-) [used only when SkewMod=2; unused when WakeMod=0 or 3]
+True          TipLoss            - Use the Prandtl tip-loss model? (flag) [unused when WakeMod=0 or 3]
+True          HubLoss            - Use the Prandtl hub-loss model? (flag) [unused when WakeMod=0 or 3]
+True          TanInd             - Include tangential induction in BEMT calculations? (flag) [unused when WakeMod=0 or 3]
+False         AIDrag             - Include the drag term in the axial-induction calculation? (flag) [unused when WakeMod=0 or 3]
+False         TIDrag             - Include the drag term in the tangential-induction calculation? (flag) [unused when WakeMod=0,3 or TanInd=FALSE]
+"Default"     IndToler           - Convergence tolerance for BEMT nonlinear solve residual equation {or "default"} (-) [unused when WakeMod=0 or 3]
+        100   MaxIter            - Maximum number of iteration steps (-) [unused when WakeMod=0]
+======  Dynamic Blade-Element/Momentum Theory Options  ============================================== [used only when WakeMod=2]
+          2   DBEMT_Mod          - Type of dynamic BEMT (DBEMT) model {1=constant tau1, 2=time-dependent tau1} (-) [used only when WakeMod=2]
+          4   tau1_const         - Time constant for DBEMT (s) [used only when WakeMod=2 and DBEMT_Mod=1]
+======  OLAF -- cOnvecting LAgrangian Filaments (Free Vortex Wake) Theory Options  ================== [used only when WakeMod=3]
+"unused"      OLAFInputFileName  - Input file for OLAF [used only when WakeMod=3]
+======  Beddoes-Leishman Unsteady Airfoil Aerodynamics Options  ===================================== [used only when AFAeroMod=2]
+          3   UAMod              - Unsteady Aero Model Switch (switch) {1=Baseline model (Original), 2=Gonzalez's variant (changes in Cn,Cc,Cm), 3=Minnema/Pierce variant (changes in Cc and Cm)} [used only when AFAeroMod=2]
+True          FLookup            - Flag to indicate whether a lookup for f' will be calculated (TRUE) or whether best-fit exponential equations will be used (FALSE); if FALSE S1-S4 must be provided in airfoil input files (flag) [used only when AFAeroMod=2]
+======  Airfoil Information =========================================================================
+          3   AFTabMod           - Interpolation method for multiple airfoil tables {1=1D interpolation on AoA (first table only); 2=2D interpolation on AoA and Re; 3=2D interpolation on AoA and UserProp} (-)
+          1   InCol_Alfa         - The column in the airfoil tables that contains the angle of attack (-)
+          2   InCol_Cl           - The column in the airfoil tables that contains the lift coefficient (-)
+          3   InCol_Cd           - The column in the airfoil tables that contains the drag coefficient (-)
+          4   InCol_Cm           - The column in the airfoil tables that contains the pitching-moment coefficient; use zero if there is no Cm column (-)
+          0   InCol_Cpmin        - The column in the airfoil tables that contains the Cpmin coefficient; use zero if there is no Cpmin column (-)
+          8   NumAFfiles         - Number of airfoil files used (-)
+"Airfoils_Flaps_Re_angepasst/Cylinder1.dat"    AFNames            - Airfoil file names (NumAFfiles lines) (quoted strings)
+"Airfoils_Flaps_Re_angepasst/Cylinder2.dat"
+"Airfoils_Flaps_Re_angepasst/DU40_A17.dat"
+"Airfoils_Flaps_Re_angepasst/DU35_A17.dat"
+"Airfoils_Flaps_Re_angepasst/DU30_A17.dat"
+"Airfoils_Flaps_Re_angepasst/DU25_A17.dat"
+"Airfoils_Flaps_Re_angepasst/DU21_A17.dat"
+"Airfoils_Flaps_Re_angepasst/NACA64_A17_Flap.dat"
+======  Rotor/Blade Properties  =====================================================================
+True          UseBlCm            - Include aerodynamic pitching moment in calculations?  (flag)
+"NRELOffshrBsline5MW_AeroDyn_blade.dat"    ADBlFile(1)        - Name of file containing distributed aerodynamic properties for Blade #1 (-)
+"NRELOffshrBsline5MW_AeroDyn_blade.dat"    ADBlFile(2)        - Name of file containing distributed aerodynamic properties for Blade #2 (-) [unused if NumBl < 2]
+"NRELOffshrBsline5MW_AeroDyn_blade.dat"    ADBlFile(3)        - Name of file containing distributed aerodynamic properties for Blade #3 (-) [unused if NumBl < 3]
+======  Tower Influence and Aerodynamics ============================================================= [used only when TwrPotent/=0, TwrShadow/=0, or TwrAero=True]
+         12   NumTwrNds         - Number of tower nodes used in the analysis  (-) [used only when TwrPotent/=0, TwrShadow/=0, or TwrAero=True]
+TwrElev        TwrDiam        TwrCd          TwrTI (used only with TwrShadow=2)
+(m)              (m)           (-)            (-)
+0.0000000E+00  6.0000000E+00  1.0000000E+00  1.0000000E-01
+8.5261000E+00  5.7870000E+00  1.0000000E+00  1.0000000E-01
+1.7053000E+01  5.5740000E+00  1.0000000E+00  1.0000000E-01
+2.5579000E+01  5.3610000E+00  1.0000000E+00  1.0000000E-01
+3.4105000E+01  5.1480000E+00  1.0000000E+00  1.0000000E-01
+4.2633000E+01  4.9350000E+00  1.0000000E+00  1.0000000E-01
+5.1158000E+01  4.7220000E+00  1.0000000E+00  1.0000000E-01
+5.9685000E+01  4.5090000E+00  1.0000000E+00  1.0000000E-01
+6.8211000E+01  4.2960000E+00  1.0000000E+00  1.0000000E-01
+7.6738000E+01  4.0830000E+00  1.0000000E+00  1.0000000E-01
+8.5268000E+01  3.8700000E+00  1.0000000E+00  1.0000000E-01
+8.7600000E+01  3.8700000E+00  1.0000000E+00  1.0000000E-01
+======  Outputs  ====================================================================================
+True          SumPrint            - Generate a summary file listing input options and interpolated properties to "<rootname>.AD.sum"?  (flag)
+          9   NBlOuts             - Number of blade node outputs [0 - 9] (-)
+          1,          4,         6,     8,      10,     12,     14,     16,     19    BlOutNd             - Blade nodes whose values will be output  (-)
+          0   NTwOuts             - Number of tower node outputs [0 - 9]  (-)
+          1,          2,          6    TwOutNd             - Tower nodes whose values will be output  (-)
+                   OutList             - The next line(s) contains a list of output parameters.  See OutListParameters.xlsx for a listing of available output channels, (-)
+B1AeroFx                                
+B1AeroFy                                
+B1AeroFz                                
+B1AeroMx                                
+B1AeroMy                                
+B1AeroMz                                
+B1AeroFxg                               
+B1AeroFyg                               
+B1AeroFzg                               
+B1AeroMxg                               
+B1AeroMyg                               
+B1AeroMzg                               
+B1N1VRel                                
+B1N2VRel                                
+B1N3VRel                                
+B1N4VRel                                
+B1N5VRel                                
+B1N6VRel                                
+B1N7VRel                                
+B1N8VRel                                
+B1N9VRel                                
+B1N1Re                                  
+B1N2Re                                  
+B1N3Re                                  
+B1N4Re                                  
+B1N5Re                                  
+B1N6Re                                  
+B1N7Re                                  
+B1N8Re                                  
+B1N9Re                                  
+B1N1M                                   
+B1N2M                                   
+B1N3M                                   
+B1N4M                                   
+B1N5M                                   
+B1N6M                                   
+B1N7M                                   
+B1N8M                                   
+B1N9M                                   
+B1N1Alpha                               
+B1N2Alpha                               
+B1N3Alpha                               
+B1N4Alpha                               
+B1N5Alpha                               
+B1N6Alpha                               
+B1N7Alpha                               
+B1N8Alpha                               
+B1N9Alpha                                                              
+B1N1Phi                                 
+B1N2Phi                                 
+B1N3Phi                                 
+B1N4Phi                                 
+B1N5Phi                                 
+B1N6Phi                                 
+B1N7Phi                                 
+B1N8Phi                                 
+B1N9Phi                                 
+B1N1Cl                                  
+B1N2Cl                                  
+B1N3Cl                                  
+B1N4Cl                                  
+B1N5Cl                                  
+B1N6Cl                                  
+B1N7Cl                                  
+B1N8Cl                                  
+B1N9Cl                                  
+B1N1Cd                                  
+B1N2Cd                                  
+B1N3Cd                                  
+B1N4Cd                                  
+B1N5Cd                                  
+B1N6Cd                                  
+B1N7Cd                                  
+B1N8Cd                                  
+B1N9Cd                                  
+B1N1Cm                                  
+B1N2Cm                                  
+B1N3Cm                                  
+B1N4Cm                                  
+B1N5Cm                                  
+B1N6Cm                                  
+B1N7Cm                                  
+B1N8Cm                                  
+B1N9Cm
+B1N1Theta                               
+B1N2Theta                               
+B1N3Theta                               
+B1N4Theta                               
+B1N5Theta                               
+B1N6Theta                               
+B1N7Theta                               
+B1N8Theta                               
+B1N9Theta                                  
+RtAeroFxh                               
+RtAeroFyh                               
+RtAeroFzh                               
+RtAeroMxh                               
+RtAeroMyh                               
+RtAeroMzh                               
+RtAeroPwr                               
+RtAeroCp                                
+RtAeroCq                                
+RtAeroCt                                
+END of input file (the word "END" must appear in the first 3 columns of this last OutList line)
+---------------------------------------------------------------------------------------
