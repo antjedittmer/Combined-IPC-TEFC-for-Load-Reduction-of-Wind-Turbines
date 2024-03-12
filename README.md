@@ -1,5 +1,3 @@
-# BernhardOsterwinter
-
 # Combined Individual Pitch and Flap Control for Load Reduction of Wind Turbines 
 ## General
 
