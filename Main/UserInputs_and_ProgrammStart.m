@@ -89,17 +89,17 @@ CPC_Switch = 'on';                                                         % 'on
 CP_Initial_Pitch_Angle = 20;                                               % in grad (Durch die PT1 transferfunktionen im Aktuatormodell und die Rate-Limiter wird jedoch der kollektive Pitch immer von null Grad beginnen. Man müsste die Aktoatromodelle in den ersten Sekunden umgehen.)
 
 % Eingaben für die IPC-Regler
-IPC_K_P    = 0.861401; %0;  %0.72181*0.5;                                                              % 1.194213 0.524277
+IPC_K_P    = 0.354; % 0.861401; %0;  %0.72181*0.5;                                                              % 1.194213 0.524277
 IPC_K_I    = 1.194213;  
 IPC_K_D    =  0; 
 IPC_Switch = 'variabel';                                                         % 'on', 'off', oder 'variabel' 
 IPC_ControllerType = "PI";                                                      % P, I, PI oder PID
 
 % Eingaben für die TEF-Regler
-TEF_K_P    =0.524277;    % 0.70622; %
+TEF_K_P    = 0.631; %0.524277;    % 0.70622; %
 TEF_K_I    = 0; %0.360148; 
 TEF_K_D    = 0; %0.0360148;   
-TEF_Switch = 'variabel' ;                                                      % 'on', 'off', oder 'variabel' 
+TEF_Switch = 'variabel';                                                      % 'on', 'off', oder 'variabel' 
 TEF_ControllerType = "P"; 
 
 %               - - - Auswaehlen der Winddaten - - - 
@@ -116,7 +116,7 @@ WindfilePfadA1 = fullfile(windfilesAll,PfadA1); % Nicht ändern!
 WindfilePfadB = windfilesAll; % Nicht ändern!
 WindfilePfadC = fullfile(windfilesAll,PfadC); % Nicht ändern!
 
-WindfileTest = WindfilePfadC;                                                % Test case Pfad
+WindfileTest = WindfilePfadA1;                                                % Test case Pfad
 
 % Windfiles mit Turbulenz Klasse B
 windTC = [4:2:10,11:14,16:2:24,25];

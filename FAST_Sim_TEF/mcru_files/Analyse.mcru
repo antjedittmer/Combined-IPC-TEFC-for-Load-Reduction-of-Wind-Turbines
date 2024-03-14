@@ -92,7 +92,7 @@ FigureName       #rows    #columns    Channel list (must number #rows*#columns) 
 "Tower base yaw (or torsional) moment"    1          1       $TwrBsMzt$
 -----  Fatigue  ----------------------------------------------------------------
 true              DoFatigue         Do fatigue analysis.
-9                 NumFatChans       The number of rainflow channels.  Next six lines ignored if zero.
+12                 NumFatChans       The number of rainflow channels.  Next six lines ignored if zero.
 0.0               FiltRatio         The fraction of the maximum range of each channel used as a cutoff range for the racetrack filter.  Use zero for no filter.
 1                 RF_Per            Number of seconds in the rainflow counting period.
 true              BinCycles         Bin the rainflow cycles?
@@ -125,6 +125,9 @@ $RootMyc3$      1          8         1         0     100000
 $TwrBsMyt$      1          3         1         0     485000
 $TwrBsMxt$      1          3         1         0     485000
 $TwrBsMzt$      1          3         1         0     485000
+$YawBrMxp$      1          3         1         0     485000
+$YawBrMyp$      1          3         1         0     485000
+$YawBrMzp$      1          3         1         0     485000
 1                 NumFatFigs        Number of figures for the rainflow analysis.  Each figure will have one or more subplots.
 FigureName              #rows    #columns    Channel list (must number #rows*#columns)    (NumRFFigs rows of data follow)
 "Blade 1 Root Moment"     1          3        $RootMyb1$ $RootMyb2$ $RootMyb3$
