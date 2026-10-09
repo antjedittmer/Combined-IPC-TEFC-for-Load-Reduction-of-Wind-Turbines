@@ -5,7 +5,7 @@
 ! ------------------------------------------------------------------------------
 "DEFAULT"     InterpOrd         ! Interpolation order to use for quasi-steady table lookup {1=linear; 3=cubic spline; "default"} [default=1]
           1   NonDimArea        ! The non-dimensional area of the airfoil (area/chord^2) (set to 1.0 if unsure or unneeded)
-@"NACA64_A17_coords.txt"    NumCoords         ! The number of coordinates in the airfoil shape file.  Set to zero if coordinates not included.
+          0    NumCoords         ! The number of coordinates in the airfoil shape file.  Set to zero if coordinates not included.
 "unused"      BL_file           ! The file name including the boundary layer characteristics of the profile. Ignored if the aeroacoustic module is not called.
           7   NumTabs           ! Number of airfoil tables in this file.
 ! ------------------------------------------------------------------------------
@@ -1309,4 +1309,4 @@ True          InclUAdata        ! Is unsteady aerodynamics data included in this
  150.00	   -1.3576	   0.2372	 -0.8570
  160.00	   -0.9051	   0.0362	 -0.7680
  170.00	   -0.4525	   0.0100	 -0.5000
- 180.00	   0.0000	   0.0100	 0.0000
+ 180.00	   0.0000	   0.0100	 0.0000
