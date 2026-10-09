@@ -9,7 +9,8 @@ function reproduceIPC_PI_RateLimitOpt(runs)
 %   Start from the Main folder. See Results_IPC_PI_RateLimitOpt/README.md.
 
 arguments
-    runs string = ["RL08" "RL13" "RL04" "RL04_start1" "RL04_start2" "RL04_start3" "RL04_start4"]
+    runs string = ["RL08" "RL13" "RL04" "RL04_start1" "RL04_start2" "RL04_start3" "RL04_start4" ...
+                   "RL04_refine" "RL08_refine" "RL13_refine"]
 end
 
 % Run name, rate limit (deg/s), x0 = [K_P K_I], MaxFunEvals
@@ -21,6 +22,9 @@ cfg = {
     "RL04_start2", 4,  [0.3 0.1],        40
     "RL04_start3", 4,  [0.1 0.3],        40
     "RL04_start4", 4,  [0.6227 0.3269],  40
+    "RL04_refine", 4,  [0.732890625000002 0.217441406249995], 60
+    "RL08_refine", 8,  [0.622698226547242 0.326937128775788], 60
+    "RL13_refine", 13, [0.632336119079591 0.341532235317994], 60
     };
 
 for r = runs

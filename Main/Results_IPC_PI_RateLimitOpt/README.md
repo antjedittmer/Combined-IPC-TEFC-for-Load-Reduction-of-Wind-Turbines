@@ -21,11 +21,18 @@ pitch rate limits. Generated on 2026-10-09 with `Main/optimizeIPC_PI_RateLimits.
 
 | Rate limit | K_P | K_I | RootMyc1/2/3 DEL | TwrBsMyt DEL | Pitch activity | Power |
 |---|---|---|---|---|---|---|
-| 4 deg/s (RL04_start3) | 0.7329 | 0.2174 | -18.8 / -22.1 / -18.2 % | +1.5 % | +295 % | ±0 % |
-| 8 deg/s (RL08)        | 0.6227 | 0.3269 | -20.9 / -21.7 / -20.1 % | -0.6 % | +285 % | ±0 % |
-| 13 deg/s (RL13)       | 0.6323 | 0.3415 | -21.2 / -20.9 / -20.6 % | -4.5 % | +287 % | ±0 % |
+| 4 deg/s (RL04_refine)  | 0.7455 | 0.2168 | -18.4 / -22.0 / -18.5 % | +0.6 % | +297 % | ±0 % |
+| 8 deg/s (RL08_refine)  | 0.6222 | 0.3168 | -20.8 / -21.6 / -20.1 % | -0.6 % | +284 % | ±0 % |
+| 13 deg/s (RL13)        | 0.6323 | 0.3415 | -21.2 / -20.9 / -20.6 % | -4.5 % | +287 % | ±0 % |
 
 All runs, including start values and number of evaluations: `Summary_all.csv`.
+
+- `RLxx_refine` are second optimizations started from the optima of the first round
+  (RL04_start3, RL08, RL13). They change the cost by at most 0.2 percentage points:
+  4 deg/s -0.1817 -> -0.1837, 8 deg/s -0.2006 -> -0.2006 (converged after 19 evaluations),
+  13 deg/s no better point found (-0.2062). The optima lie next to unstable gains: 35 of
+  63 evaluations at 4 deg/s and 12 of 61 at 13 deg/s were worse than the baseline or failed
+  (tower strike); a 5 % step in K_P or K_I can already be enough.
 
 - `RL04` is the first 4 deg/s run from the repo's start values [0.354 1.194]. It failed (cost
   +0.365): with the high K_I the IPC uses up the shared rate budget and the speed control
@@ -63,7 +70,7 @@ private copy of `FAST_Sim_TEF` (option `WorkFolder`). Example for the 8 deg/s ru
 matlab -batch "optimizeIPC_PI_RateLimits(struct('RateLimits',8,'MaxFunEvals',60,'WorkFolder','D:/ipc_work/RL08','ResultsFolder',fullfile(pwd,'Post_processing','IPC_PI_RateLimitOpt_RL08')))"
 ```
 
-For the restarts add `'x0',[0.1 0.3]` etc. and `'MaxFunEvals',40` (values in `Summary_all.csv`).
+For the restarts add `'x0',[0.1 0.3]` etc. and the `MaxFunEvals` given in `Summary_all.csv`.
 Delete the work folders afterwards.
 
 The 8 flap airfoil files in `FAST_Sim_TEF/5MW-Turbine-Inputfiles/Sub-Inputfiles/Airfoils_Flaps_Re_angepasst`
