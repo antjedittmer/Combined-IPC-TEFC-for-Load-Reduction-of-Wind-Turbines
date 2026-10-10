@@ -14,6 +14,11 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   from the Simulink output (rainflow, 1 Hz equivalent), so MCrunch and
 %   Excel are not required.
 %
+%   With opts.Optimizer = "fmincon" (SQP, finite differences) the same cost
+%   is minimized subject to the constraint that the relative change of the
+%   tower base DEL (TwrBsMyt) is at most opts.TowerMaxRelDEL (default 0,
+%   i.e. the tower load must not get worse than in the baseline).
+%
 %   The pitch rate limit is applied to the total blade pitch command
 %   (CPC + IPC) in the pitch actuator model and to the rate saturation of
 %   the CPC (Control.Pitch.Minrate/Maxrate). The model is changed in memory
@@ -38,6 +43,11 @@ def.TolFun        = 1e-4;
 def.SimulinkFile  = 'ClosedLoop_V5_2020b.slx';
 def.ResultsFolder = '';
 def.WorkFolder    = '';                                                    % private copy of FAST_Sim_TEF for parallel runs
+def.Optimizer     = "fminsearch";                                          % "fminsearch" or "fmincon"
+def.lb            = [0 0];                                                 % fmincon bounds for [K_P, K_I]
+def.ub            = [2 2];
+def.TowerMaxRelDEL = 0;                                                    % fmincon: max. relative change of DEL TwrBsMyt
+def.FiniteDiffStep = 1e-2;                                                 % fmincon: finite difference step (relative)
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -132,16 +142,31 @@ for r = 1:numel(opts.RateLimits)
 
     % Optimization of [K_P, K_I]
     History = table();
+    cache = containers.Map('KeyType', 'char', 'ValueType', 'any');        % fmincon evaluates cost and constraint separately
     fun = @(x) costIPC(x);
-    fsOpts = optimset('Display', 'iter', 'MaxFunEvals', opts.MaxFunEvals, ...
-        'TolX', opts.TolX, 'TolFun', opts.TolFun);
-    [xOpt, Jopt, exitflag, output] = fminsearch(fun, opts.x0, fsOpts);
+    switch opts.Optimizer
+        case "fminsearch"
+            fsOpts = optimset('Display', 'iter', 'MaxFunEvals', opts.MaxFunEvals, ...
+                'TolX', opts.TolX, 'TolFun', opts.TolFun);
+            [xOpt, Jopt, exitflag, output] = fminsearch(fun, opts.x0, fsOpts);
+        case "fmincon"
+            % Blade root DEL as cost, the tower DEL must not get worse
+            fcOpts = optimoptions('fmincon', 'Algorithm', 'sqp', 'Display', 'iter', ...
+                'MaxFunctionEvaluations', opts.MaxFunEvals, 'StepTolerance', opts.TolX, ...
+                'OptimalityTolerance', opts.TolFun, 'ConstraintTolerance', 1e-3, ...
+                'FiniteDifferenceStepSize', opts.FiniteDiffStep);
+            [xOpt, Jopt, exitflag, output] = fmincon(fun, opts.x0, [], [], [], [], ...
+                opts.lb, opts.ub, @towerConstraint, fcOpts);
+        otherwise
+            error('Unknown optimizer "%s".', opts.Optimizer);
+    end
 
     % Re-simulate the optimum to store its metrics
     best = simulateIPC(mdl, SimConfig, xOpt, 1, opts);
     rel  = relativeChange(best, base);
 
     Results(r).RateLimit = rl;
+    Results(r).Optimizer = opts.Optimizer;
     Results(r).K_P       = xOpt(1);
     Results(r).K_I       = xOpt(2);
     Results(r).Cost      = Jopt;
@@ -172,6 +197,27 @@ writetable(Summary, fullfile(opts.ResultsFolder, 'Summary.csv'));
 save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
 
     function J = costIPC(x)
+        [J, ~] = evaluateIPC(x);
+    end
+
+    function [c, ceq] = towerConstraint(x)
+        [~, relx] = evaluateIPC(x);
+        if isnan(relx.TwrBsMyt)
+            c = 1;                                                         % failed run counts as infeasible
+        else
+            c = relx.TwrBsMyt - opts.TowerMaxRelDEL;
+        end
+        ceq = [];
+    end
+
+    function [J, relx] = evaluateIPC(x)
+        key = sprintf('%.15g,', x);
+        if isKey(cache, key)
+            v = cache(key);
+            J = v{1};
+            relx = v{2};
+            return;
+        end
         res = simulateIPC(mdl, SimConfig, x, 1, opts);
         if res.ok
             relx = relativeChange(res, base);
@@ -184,7 +230,8 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
             relx.RootMyc(1), relx.RootMyc(2), relx.RootMyc(3), relx.TwrBsMyt, relx.ADC, relx.Power, ...
             'VariableNames', {'Time', 'K_P', 'K_I', 'Cost', 'RelDEL_RootMyc1', 'RelDEL_RootMyc2', ...
             'RelDEL_RootMyc3', 'RelDEL_TwrBsMyt', 'RelADC', 'RelPower'})];
-        fprintf('  K_P = %9.5f, K_I = %9.5f -> J = %+.5f\n', x(1), x(2), J);
+        fprintf('  K_P = %9.5f, K_I = %9.5f -> J = %+.5f, tower %+.2f %%\n', x(1), x(2), J, 100*relx.TwrBsMyt);
+        cache(key) = {J, relx};
     end
 end
 

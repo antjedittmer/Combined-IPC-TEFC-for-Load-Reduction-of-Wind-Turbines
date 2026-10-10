@@ -41,6 +41,34 @@ All runs, including start values and number of evaluations: `Summary_all.csv`.
   K_P = 0.52-0.73 with costs between -0.180 and -0.182 (flat valley).
 - `RL13` stopped at MaxFunEvals (not fully converged); `RL08` and `RL04_start4` converged.
 
+## fmincon with tower constraint
+
+`RLxx_fmincon`: `fmincon` (SQP, forward finite differences with 1 % step, bounds 0..2) minimizes
+the same cost subject to "relative change of DEL TwrBsMyt <= 0", started from the fminsearch optima.
+Failed simulations count as infeasible.
+
+| Rate limit | Result | K_P | K_I | RootMyc1/2/3 DEL | TwrBsMyt DEL | Pitch activity |
+|---|---|---|---|---|---|---|
+| 4 deg/s  | infeasible, best feasible point in history | 0.7438 | 0.2163 | -19.0 / -16.0 / -21.3 % | -1.5 % | +298 % |
+| 8 deg/s  | converged, constraint satisfied | 1.0959 | 0.2504 | -23.8 / -21.2 / -22.8 % | -6.6 % | +368 % |
+| 13 deg/s | start point kept (constraint already satisfied) | 0.6323 | 0.3415 | -21.2 / -20.9 / -20.6 % | -4.5 % | +287 % |
+
+- 4 deg/s: fmincon stopped with "converged to an infeasible point" and returned the start point
+  (tower +0.6 %). The best point in its history with tower <= 0 is listed above (cost -0.160
+  instead of -0.184). The table is taken from `RL04_fmincon/History_RL04.csv`.
+- 8 deg/s: a second region with higher K_P (about 1.1) and lower K_I gives a slightly lower cost
+  (-0.212 vs -0.201) and a lower tower DEL (-6.6 %), but about 30 % more pitch activity than
+  K_P = 0.62. 15 of 46 evaluations failed (tower strike), e.g. at K_P = 2.
+- The cost is very sensitive on one 660 s wind field: at 4 deg/s, changing K_P and K_I by about 0.2 % changed the
+  tower DEL from +0.6 % to -1.5 % and the worst blade from -18.4 % to -16.0 %. Gradient-based
+  optimization therefore works poorly here; differences below about 1 percentage point are not
+  meaningful.
+
+`RL04_start5`: fminsearch at 4 deg/s from K_P = 0, K_I = 0.1. Because x0(1) = 0, fminsearch starts
+with a K_P step of only 0.00025 and K_P stays near 0. It stops after 26 evaluations at
+K_P = 0.0018, K_I = 0.276 with cost -0.152 (RootMyc -15.2 / -18.0 / -15.3 %, tower +1.9 %),
+i.e. an almost pure I controller, clearly worse than K_P around 0.6-0.75.
+
 ## Files
 
 Each run folder contains:
