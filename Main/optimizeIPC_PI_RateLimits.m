@@ -43,7 +43,7 @@ def.TolFun        = 1e-4;
 def.SimulinkFile  = 'ClosedLoop_V5_2020b.slx';
 def.ResultsFolder = '';
 def.WorkFolder    = '';                                                    % private copy of FAST_Sim_TEF for parallel runs
-def.Optimizer     = "fminsearch";                                          % "fminsearch" or "fmincon"
+def.Optimizer     = "fminsearch";                                          % "fminsearch", "fmincon" or "none" (evaluate rows of x0)
 def.lb            = [0 0];                                                 % fmincon bounds for [K_P, K_I]
 def.ub            = [2 2];
 def.TowerMaxRelDEL = 0;                                                    % fmincon: max. relative change of DEL TwrBsMyt
@@ -55,6 +55,7 @@ for k = 1:numel(fn)
 end
 
 %% Paths and input files
+opts.WindFile = string(opts.WindFile);                                    % Edit_InflowWind_V2 needs a string
 mainFolderPath = pwd;
 [~, name] = fileparts(mainFolderPath);
 if name ~= "Main"
@@ -158,6 +159,13 @@ for r = 1:numel(opts.RateLimits)
                 'FiniteDifferenceStepSize', opts.FiniteDiffStep);
             [xOpt, Jopt, exitflag, output] = fmincon(fun, opts.x0, [], [], [], [], ...
                 opts.lb, opts.ub, @towerConstraint, fcOpts);
+        case "none"
+            % Only evaluate the gain sets in the rows of x0 (e.g. on other wind seeds)
+            J = arrayfun(@(k) costIPC(opts.x0(k,:)), 1:size(opts.x0, 1));
+            [Jopt, kBest] = min(J);
+            xOpt = opts.x0(kBest,:);
+            exitflag = 0;
+            output = struct('funcCount', numel(J));
         otherwise
             error('Unknown optimizer "%s".', opts.Optimizer);
     end

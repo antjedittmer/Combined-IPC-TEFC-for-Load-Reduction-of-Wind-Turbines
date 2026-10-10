@@ -97,6 +97,39 @@ with a K_P step of only 0.00025 and K_P stays near 0. It stops after 26 evaluati
 K_P = 0.0018, K_I = 0.276 with cost -0.152 (RootMyc -15.2 / -18.0 / -15.3 %, tower +1.9 %),
 i.e. an almost pure I controller, clearly worse than K_P around 0.6-0.75.
 
+## Check on other 18 m/s wind seeds (`SeedCheck`)
+
+The optimized gains were simulated (`'Optimizer','none'`, rows of `x0` are evaluated) on the other
+18 m/s wind files, each compared with IPC off at the same rate limit and the same wind file:
+
+- B: `Eigene_Wind_Dateien/18mps.bts` (hub 17.7 m/s, TI 17.2 %)
+- C1: `TurbKlasseA/18mpsNewSeed.bts` and C2: `TurbKlasseAnewSeed/18mps.bts` (hub 17.8 m/s, TI 15.4 %);
+  C1 and C2 are the same seed, the values differ only in the last bit.
+- For comparison, the optimization file `TurbKlasseA/18mps.bts`: hub 18.2 m/s, TI 16.0 %.
+
+Worst blade root DEL change (cost) / tower DEL change in %:
+
+| Rate limit | K_P | K_I | Optimization seed | B | C1 | C2 |
+|---|---|---|---|---|---|---|
+| 4 deg/s  | 0.7455 | 0.2168 | -18.4 / +0.6 | **+129 / +109** | **+152 / +161** | **+152 / +161** |
+| 4 deg/s  | 0.5857 | 0.2322 | -18.0 / +1.4 | -14.7 / +1.1 | **+147 / +159** | **+147 / +159** |
+| 8 deg/s  | 0.6222 | 0.3168 | -20.1 / -0.6 | -18.0 / +4.3 | -19.4 / +0.1 | -19.4 / +0.1 |
+| 8 deg/s  | 1.0959 | 0.2504 | -21.2 / -6.6 | -17.7 / -4.9 | -18.9 / -0.1 | -19.1 / +3.5 |
+| 13 deg/s | 0.6323 | 0.3415 | -20.6 / -4.5 | -18.2 / +5.5 | -19.4 / +0.1 | -19.4 / +0.1 |
+| 13 deg/s | 0.9669 | 0.2209 | -22.1 / -6.3 | -17.9 / +4.6 | **failed** | **failed** |
+
+- 4 deg/s: none of the gain sets is robust. On seed C (and on seed B for K_P = 0.75) the loads
+  increase by more than 100 % and the power drops (-2.6 %, on B -18 %): the IPC uses the shared rate
+  budget and the speed control fails, as in the first 4 deg/s run with high K_I. The 4 deg/s gains
+  need to be optimized on several seeds or with a robustness margin.
+- 8 and 13 deg/s: the moderate fminsearch gains (K_P about 0.62-0.63, K_I about 0.32-0.34) are robust
+  and give -18 to -19.4 % on the new seeds (1-2 percentage points less than on the optimization seed).
+  The tower DEL changes between -4.5 % and +5.5 % depending on the seed.
+- The higher-K_P fmincon gains do not generalize: at 8 deg/s they are slightly worse than the
+  fminsearch gains on the new seeds, at 13 deg/s they fail on seed C (tower strike).
+- C1 and C2 give practically the same result except for the 8 deg/s fmincon gains (tower -0.1 %
+  vs +3.5 %), again showing the sensitivity of the high-gain region.
+
 ## Files
 
 Each run folder contains:
