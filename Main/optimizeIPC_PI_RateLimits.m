@@ -48,6 +48,7 @@ def.lb            = [0 0];                                                 % fmi
 def.ub            = [2 2];
 def.TowerMaxRelDEL = 0;                                                    % fmincon: max. relative change of DEL TwrBsMyt
 def.FiniteDiffStep = 1e-2;                                                 % fmincon: finite difference step (relative)
+def.SaveTimeSeries = false;                                                % save OutData of baseline and optimum
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -163,6 +164,12 @@ for r = 1:numel(opts.RateLimits)
 
     % Re-simulate the optimum to store its metrics
     best = simulateIPC(mdl, SimConfig, xOpt, 1, opts);
+    if opts.SaveTimeSeries
+        TimeSeries = struct('Baseline', base.TS, 'Optimum', best.TS);
+        save(fullfile(opts.ResultsFolder, sprintf('TimeSeries_RL%02d.mat', rl)), 'TimeSeries');
+        base = rmfield(base, 'TS');
+        best = rmfield(best, 'TS');
+    end
     rel  = relativeChange(best, base);
 
     Results(r).RateLimit = rl;
@@ -287,6 +294,9 @@ genSpeed     = ch("GenSpeed");
 res.Power    = mean(power(idx));                                           % kW
 res.StdSpeed = std(genSpeed(idx));                                         % rpm
 res.x        = x;
+if opts.SaveTimeSeries
+    res.TS = struct('OutData', OutData, 'OutList', OutList);
+end
 res.ok       = true;
 end
 

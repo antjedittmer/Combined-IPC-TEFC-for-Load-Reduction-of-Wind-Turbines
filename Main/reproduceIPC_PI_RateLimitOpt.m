@@ -11,7 +11,7 @@ function reproduceIPC_PI_RateLimitOpt(runs)
 arguments
     runs string = ["RL08" "RL13" "RL04" "RL04_start1" "RL04_start2" "RL04_start3" "RL04_start4" ...
                    "RL04_refine" "RL08_refine" "RL13_refine" ...
-                   "RL04_fmincon" "RL08_fmincon" "RL13_fmincon" "RL04_start5"]
+                   "RL04_fmincon" "RL08_fmincon" "RL13_fmincon" "RL04_start5" "RL13_fmincon_x08"]
 end
 
 % Run name, rate limit (deg/s), x0 = [K_P K_I], MaxFunEvals, optimizer
@@ -31,6 +31,7 @@ cfg = {
     "RL08_fmincon", 8,  [0.622211743557752 0.316848053317473], 60, "fmincon"
     "RL13_fmincon", 13, [0.632336119079591 0.341532235317994], 60, "fmincon"
     "RL04_start5",  4,  [0 0.1],                               60, "fminsearch"
+    "RL13_fmincon_x08", 13, [1.09586129965496 0.250383475605604], 60, "fmincon"
     };
 
 for r = runs

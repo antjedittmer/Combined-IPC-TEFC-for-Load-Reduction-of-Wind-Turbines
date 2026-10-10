@@ -64,6 +64,34 @@ Failed simulations count as infeasible.
   optimization therefore works poorly here; differences below about 1 percentage point are not
   meaningful.
 
+### 13 deg/s started from the 8 deg/s fmincon optimum (`RL13_fmincon_x08`)
+
+fmincon at 13 deg/s from K_P = 1.0959, K_I = 0.2504 ends at **K_P = 0.9669, K_I = 0.2209** with
+cost -0.221 (RootMyc -24.5 / -22.1 / -24.1 %, tower -6.3 %, pitch activity +334 %), the best
+result of all runs. 12 of 32 evaluations failed (tower strike).
+
+Comparison at identical gains (first evaluation of a run, or re-simulation with
+`'SaveTimeSeries', true`):
+
+| Gains (K_P, K_I) | Rate limit | Cost | Tower DEL | Pitch activity |
+|---|---|---|---|---|
+| 1.0959, 0.2504 | 8 deg/s  | -0.212 | -6.6 % | +368 % |
+| 1.0959, 0.2504 | 13 deg/s | -0.202 | -1.5 % | +368 % |
+| 0.9669, 0.2209 | 13 deg/s | -0.221 | -6.3 % | +334 % |
+| 0.9669, 0.2209 | 8 deg/s  | failed (tower strike) | | |
+
+- At identical gains the pitch activity is the same for 8 and 13 deg/s. At 18 m/s the pitch rate
+  is above 90 % of the 8 deg/s limit only 0.3-0.8 % of the time and never reaches 13 deg/s, so the
+  rate limit rarely acts. The higher pitch activity of the 8 deg/s fmincon result compared with the
+  13 deg/s fminsearch result comes from its higher K_P, not from the rate limit.
+- The loads, however, change considerably between neighbouring gains and between the two rate
+  limits, and gains that are stable for one limit can lead to a tower strike for the other. On a
+  single 660 s wind field, differences of about 1 percentage point are within this sensitivity.
+- The maximum pitch rate of 13.8 deg/s reported for `RL08_fmincon` is not a violation of the rate
+  limit: around t = 406 s all three pitch outputs jitter by about +-0.05 deg from one 0.01 s
+  sample to the next (numerical artefact), which gives large finite differences. After t = 5 s
+  the actuator rate limiter is active; before that the pitch outputs are not limited.
+
 `RL04_start5`: fminsearch at 4 deg/s from K_P = 0, K_I = 0.1. Because x0(1) = 0, fminsearch starts
 with a K_P step of only 0.00025 and K_P stays near 0. It stops after 26 evaluations at
 K_P = 0.0018, K_I = 0.276 with cost -0.152 (RootMyc -15.2 / -18.0 / -15.3 %, tower +1.9 %),
