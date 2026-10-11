@@ -19,6 +19,12 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   tower base DEL (TwrBsMyt) is at most opts.TowerMaxRelDEL (default 0,
 %   i.e. the tower load must not get worse than in the baseline).
 %
+%   opts.WindFile can be a string array of several wind files (seeds). Then
+%   a baseline is simulated for every wind file and the cost of a gain set
+%   is aggregated over the wind files (opts.SeedAggregation "max": worst
+%   case, or "mean"). If a simulation fails on one wind file, the gain set
+%   gets the penalty cost without simulating the remaining wind files.
+%
 %   The pitch rate limit is applied to the total blade pitch command
 %   (CPC + IPC) in the pitch actuator model and to the rate saturation of
 %   the CPC (Control.Pitch.Minrate/Maxrate). The model is changed in memory
@@ -49,6 +55,8 @@ def.ub            = [2 2];
 def.TowerMaxRelDEL = 0;                                                    % fmincon: max. relative change of DEL TwrBsMyt
 def.FiniteDiffStep = 1e-2;                                                 % fmincon: finite difference step (relative)
 def.SaveTimeSeries = false;                                                % save OutData of baseline and optimum
+def.InitialStep   = [];                                                   % fminsearch: size of the initial simplex in gain units (default: 5 % of x0)
+def.SeedAggregation = "max";                                               % several wind files: "max" or "mean" of the costs
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -65,7 +73,11 @@ programmFolderPath = fullfile(fileparts(mainFolderPath), 'FAST_Sim_TEF');
 if ~isempty(opts.WorkFolder)
     % Private copy of the FAST/Simulink files (without the wind data except
     % the selected file), so that several optimizations can run in parallel
-    programmFolderPath = prepareWorkCopy(programmFolderPath, opts.WorkFolder, opts.WindFile);
+    workFolderPath = prepareWorkCopy(programmFolderPath, opts.WorkFolder, opts.WindFile(1));
+    for s = 2:numel(opts.WindFile)
+        prepareWorkCopy(programmFolderPath, opts.WorkFolder, opts.WindFile(s));
+    end
+    programmFolderPath = workFolderPath;
     Simulink.fileGenControl('set', 'CacheFolder', opts.WorkFolder, ...
         'CodeGenFolder', opts.WorkFolder, 'createDir', true);
 end
@@ -78,11 +90,14 @@ InflowWindFilePath = fullfile(inputFolderPath, 'Sub-Inputfiles', 'NRELOffshrBsli
 SimulinkFilePath   = fullfile(programmFolderPath, 'simulink', opts.SimulinkFile);
 [~, mdl] = fileparts(SimulinkFilePath);
 
-if ~isfile(fullfile(inputFolderPath, 'Sub-Inputfiles', opts.WindFile))
-    error('Wind file %s does not exist.', opts.WindFile);
+nSeeds = numel(opts.WindFile);
+for s = 1:nSeeds
+    if ~isfile(fullfile(inputFolderPath, 'Sub-Inputfiles', opts.WindFile(s)))
+        error('Wind file %s does not exist.', opts.WindFile(s));
+    end
 end
 Edit_fst(FAST_InputFileName, floor(opts.TStartLog));
-Edit_InflowWind_V2(opts.WindFile, 1, InflowWindFilePath);
+setWindFile(InflowWindFilePath, opts.WindFile(1));
 
 if isempty(opts.ResultsFolder)
     opts.ResultsFolder = fullfile(mainFolderPath, 'Post_processing', ...
@@ -134,13 +149,18 @@ for r = 1:numel(opts.RateLimits)
         set_param([mdl '/' actuators{a} '/Constant3'], 'Value', 'Control.Pitch.Minrate*pi/180');
     end
 
-    % Baseline: IPC off
-    base = simulateIPC(mdl, SimConfig, [0 0], 0, opts);
-    if ~base.ok
-        error('Baseline simulation failed for rate limit %g deg/s: %s', rl, base.msg);
+    % Baseline: IPC off, for every wind file
+    base = cell(1, nSeeds);
+    for s = 1:nSeeds
+        setWindFile(InflowWindFilePath, opts.WindFile(s));
+        base{s} = simulateIPC(mdl, SimConfig, [0 0], 0, opts);
+        if ~base{s}.ok
+            error('Baseline simulation failed for rate limit %g deg/s, wind file %s: %s', ...
+                rl, opts.WindFile(s), base{s}.msg);
+        end
+        fprintf('Baseline %s: DEL RootMyc = [%.0f %.0f %.0f] kNm, DEL TwrBsMyt = %.0f kNm\n', ...
+            opts.WindFile(s), base{s}.DEL.RootMyc, base{s}.DEL.TwrBsMyt);
     end
-    fprintf('Baseline: DEL RootMyc = [%.0f %.0f %.0f] kNm, DEL TwrBsMyt = %.0f kNm\n', ...
-        base.DEL.RootMyc, base.DEL.TwrBsMyt);
 
     % Optimization of [K_P, K_I]
     History = table();
@@ -148,9 +168,20 @@ for r = 1:numel(opts.RateLimits)
     fun = @(x) costIPC(x);
     switch opts.Optimizer
         case "fminsearch"
-            fsOpts = optimset('Display', 'iter', 'MaxFunEvals', opts.MaxFunEvals, ...
-                'TolX', opts.TolX, 'TolFun', opts.TolFun);
-            [xOpt, Jopt, exitflag, output] = fminsearch(fun, opts.x0, fsOpts);
+            if isempty(opts.InitialStep)
+                fsOpts = optimset('Display', 'iter', 'MaxFunEvals', opts.MaxFunEvals, ...
+                    'TolX', opts.TolX, 'TolFun', opts.TolFun);
+                [xOpt, Jopt, exitflag, output] = fminsearch(fun, opts.x0, fsOpts);
+            else
+                % fminsearch starts with steps of 5 % of z0 = 1, so x = x0 + (z - 1).*scale
+                % gives initial steps of opts.InitialStep
+                scale = opts.InitialStep / 0.05;
+                fsOpts = optimset('Display', 'iter', 'MaxFunEvals', opts.MaxFunEvals, ...
+                    'TolX', opts.TolX / max(scale), 'TolFun', opts.TolFun);
+                [zOpt, Jopt, exitflag, output] = fminsearch(@(z) fun(opts.x0 + (z - 1).*scale), ...
+                    ones(size(opts.x0)), fsOpts);
+                xOpt = opts.x0 + (zOpt - 1).*scale;
+            end
         case "fmincon"
             % Blade root DEL as cost, the tower DEL must not get worse
             fcOpts = optimoptions('fmincon', 'Algorithm', 'sqp', 'Display', 'iter', ...
@@ -170,15 +201,32 @@ for r = 1:numel(opts.RateLimits)
             error('Unknown optimizer "%s".', opts.Optimizer);
     end
 
-    % Re-simulate the optimum to store its metrics
-    best = simulateIPC(mdl, SimConfig, xOpt, 1, opts);
-    if opts.SaveTimeSeries
-        TimeSeries = struct('Baseline', base.TS, 'Optimum', best.TS);
-        save(fullfile(opts.ResultsFolder, sprintf('TimeSeries_RL%02d.mat', rl)), 'TimeSeries');
-        base = rmfield(base, 'TS');
-        best = rmfield(best, 'TS');
+    % Re-simulate the optimum on every wind file to store its metrics
+    best = cell(1, nSeeds);
+    relS = cell(1, nSeeds);
+    for s = 1:nSeeds
+        setWindFile(InflowWindFilePath, opts.WindFile(s));
+        best{s} = simulateIPC(mdl, SimConfig, xOpt, 1, opts);
+        if ~best{s}.ok
+            error('Re-simulation of the optimum failed for wind file %s: %s', opts.WindFile(s), best{s}.msg);
+        end
+        relS{s} = relativeChange(best{s}, base{s});
     end
-    rel  = relativeChange(best, base);
+    if opts.SaveTimeSeries
+        TimeSeries = struct('WindFile', opts.WindFile, ...
+            'Baseline', {cellfun(@(b) b.TS, base, 'UniformOutput', false)}, ...
+            'Optimum', {cellfun(@(b) b.TS, best, 'UniformOutput', false)});
+        if nSeeds == 1
+            TimeSeries.Baseline = TimeSeries.Baseline{1};
+            TimeSeries.Optimum  = TimeSeries.Optimum{1};
+        end
+        save(fullfile(opts.ResultsFolder, sprintf('TimeSeries_RL%02d.mat', rl)), 'TimeSeries');
+        base = cellfun(@(b) rmfield(b, 'TS'), base, 'UniformOutput', false);
+        best = cellfun(@(b) rmfield(b, 'TS'), best, 'UniformOutput', false);
+    end
+    rel = aggregateRel(relS);
+    base = cellfun(@(b) rmfield(b, 'ok'), base, 'UniformOutput', false);
+    best = cellfun(@(b) rmfield(b, 'ok'), best, 'UniformOutput', false);
 
     Results(r).RateLimit = rl;
     Results(r).Optimizer = opts.Optimizer;
@@ -187,9 +235,16 @@ for r = 1:numel(opts.RateLimits)
     Results(r).Cost      = Jopt;
     Results(r).ExitFlag  = exitflag;
     Results(r).Output    = output;
-    Results(r).Baseline  = rmfield(base, 'ok');
-    Results(r).Optimum   = rmfield(best, 'ok');
-    Results(r).RelChange = rel;
+    Results(r).WindFile  = opts.WindFile;
+    if nSeeds == 1
+        Results(r).Baseline = base{1};
+        Results(r).Optimum  = best{1};
+    else
+        Results(r).Baseline = base;
+        Results(r).Optimum  = best;
+    end
+    Results(r).RelChange = rel;                                            % worst case (DEL) / mean (ADC, power) over the wind files
+    Results(r).RelChangeSeeds = relS;
     Results(r).History   = History;
 
     writetable(History, fullfile(opts.ResultsFolder, sprintf('History_RL%02d.csv', rl)));
@@ -233,19 +288,38 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
             relx = v{2};
             return;
         end
-        res = simulateIPC(mdl, SimConfig, x, 1, opts);
-        if res.ok
-            relx = relativeChange(res, base);
-            J = max(relx.RootMyc);                                         % as CostFunctionDELAllMoments (without /100 for %)
-        else
-            relx = struct('RootMyc', nan(1,3), 'TwrBsMyt', NaN, 'ADC', NaN, 'Power', NaN);
-            J = 1;                                                         % penalty for failed or unstable runs
+        Js   = nan(1, nSeeds);
+        relSd = repmat({struct('RootMyc', nan(1,3), 'TwrBsMyt', NaN, 'ADC', NaN, 'Power', NaN)}, 1, nSeeds);
+        for sd = 1:nSeeds
+            if nSeeds > 1, setWindFile(InflowWindFilePath, opts.WindFile(sd)); end
+            res = simulateIPC(mdl, SimConfig, x, 1, opts);
+            if ~res.ok
+                Js(sd) = 1;                                                % penalty for failed or unstable runs
+                break;                                                     % remaining wind files are not needed
+            end
+            relSd{sd} = relativeChange(res, base{sd});
+            Js(sd) = max(relSd{sd}.RootMyc);                               % as CostFunctionDELAllMoments (without /100 for %)
         end
-        History = [History; table(datetime('now'), x(1), x(2), J, ...
+        if any(Js == 1) || nSeeds == 1 || opts.SeedAggregation == "max"
+            J = max(Js);
+        else
+            J = mean(Js);
+        end
+        relx = aggregateRel(relSd);
+        row = table(datetime('now'), x(1), x(2), J, ...
             relx.RootMyc(1), relx.RootMyc(2), relx.RootMyc(3), relx.TwrBsMyt, relx.ADC, relx.Power, ...
             'VariableNames', {'Time', 'K_P', 'K_I', 'Cost', 'RelDEL_RootMyc1', 'RelDEL_RootMyc2', ...
-            'RelDEL_RootMyc3', 'RelDEL_TwrBsMyt', 'RelADC', 'RelPower'})];
-        fprintf('  K_P = %9.5f, K_I = %9.5f -> J = %+.5f, tower %+.2f %%\n', x(1), x(2), J, 100*relx.TwrBsMyt);
+            'RelDEL_RootMyc3', 'RelDEL_TwrBsMyt', 'RelADC', 'RelPower'});
+        if nSeeds > 1
+            for sd = 1:nSeeds
+                row.(sprintf('Cost_seed%d', sd)) = Js(sd);
+                row.(sprintf('RelDEL_TwrBsMyt_seed%d', sd)) = relSd{sd}.TwrBsMyt;
+            end
+        end
+        History = [History; row];
+        fprintf('  K_P = %9.5f, K_I = %9.5f -> J = %+.5f, tower %+.2f %%', x(1), x(2), J, 100*relx.TwrBsMyt);
+        if nSeeds > 1, fprintf(' (seeds: %s)', sprintf('%+.4f ', Js)); end
+        fprintf('\n');
         cache(key) = {J, relx};
     end
 end
@@ -343,6 +417,24 @@ if ~isfile(windDst)
     mkdir(fileparts(windDst));
     copyfile(fullfile(programmFolderPath, '5MW-Turbine-Inputfiles', 'Sub-Inputfiles', windFile), windDst);
 end
+end
+
+function rel = aggregateRel(relS)
+% Worst case of the DEL changes and mean of ADC and power over the wind files
+% (NaN if a wind file was not simulated or failed)
+R = [relS{:}];
+rel.RootMyc  = max(vertcat(R.RootMyc), [], 1, 'includenan');
+rel.TwrBsMyt = max([R.TwrBsMyt], [], 'includenan');
+rel.ADC      = mean([R.ADC]);
+rel.Power    = mean([R.Power]);
+end
+
+function setWindFile(inflowWindFilePath, windFile)
+% Set the full field wind file (line 21 of the InflowWind input file)
+lines = readlines(inflowWindFilePath);
+lines(21) = '"' + windFile + '"     FileName_BTS   - Name of the Full field wind file to use (.bts)';
+if lines(end) == "", lines(end) = []; end                                  % writelines adds the final newline
+writelines(lines, inflowWindFilePath);
 end
 
 function D = del(y, idx, m, T)

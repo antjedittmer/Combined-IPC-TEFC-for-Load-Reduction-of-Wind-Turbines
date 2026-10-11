@@ -130,6 +130,25 @@ Worst blade root DEL change (cost) / tower DEL change in %:
 - C1 and C2 give practically the same result except for the 8 deg/s fmincon gains (tower -0.1 %
   vs +3.5 %), again showing the sensitivity of the high-gain region.
 
+### 13 deg/s with the 8 deg/s gains (`SeedCheck/Seeds_RL13_x08_*`)
+
+Same table format (worst blade root DEL / tower DEL in %), A = optimization seed:
+
+| Gains (K_P, K_I) | Rate limit | A | B | C1 | C2 |
+|---|---|---|---|---|---|
+| 0.6222, 0.3168 | 8 deg/s  | -20.1 / -0.6 | -18.0 / +4.3 | -19.4 / +0.1 | -19.4 / +0.1 |
+| 0.6222, 0.3168 | 13 deg/s | -20.0 / -0.4 | **tower strike** | -19.4 / +0.1 | -19.4 / +0.1 |
+| 0.6323, 0.3415 | 13 deg/s | -20.6 / -4.5 | -18.2 / +5.5 | -19.4 / +0.1 | -19.4 / +0.1 |
+| 1.0959, 0.2504 | 8 deg/s  | -21.2 / -6.6 | -17.7 / -4.9 | -18.9 / -0.1 | -19.1 / +3.5 |
+| 1.0959, 0.2504 | 13 deg/s | -20.2 / -1.5 | -16.1 / +1.4 | -19.4 / +4.6 | -19.2 / -1.1 |
+
+- On seeds A and C the 8 deg/s gains give practically the same result at 13 deg/s (the rate limit
+  is rarely active).
+- On seed B the moderate gains (0.6222, 0.3168) lead to a tower strike at 13 deg/s, although the
+  same gains work at 8 deg/s and the very similar 13 deg/s gains (0.6323, 0.3415) work at 13 deg/s.
+  Seed B (highest turbulence) is close to the tower clearance limit, and small changes decide
+  whether a strike occurs. No gain set has been robust on all seeds and rate limits so far.
+
 ## Files
 
 Each run folder contains:
