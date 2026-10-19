@@ -30,6 +30,16 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   the CPC (Control.Pitch.Minrate/Maxrate). The model is changed in memory
 %   only and is not saved.
 %
+%   opts.Vars selects the optimization variables x:
+%   - "IPC" (default): [K_P, K_I] of the IPC, TEF off
+%   - "TEF_KP": K_P of the TEF controller, IPC on with the fixed gains
+%     opts.IPCGains = [K_P, K_I]
+%   - "TEF_KPKD": [K_P, K_D/opts.TEFKDScale] of the TEF controller (K_D
+%     scaled, default 0.01, so that both variables have a similar size), IPC
+%     on with opts.IPCGains
+%   The TEF K_I is opts.TEF_K_I (default 0). The baseline is always IPC and
+%   TEF off, so the costs of all variants are comparable.
+%
 %   Start from the Main folder, e.g.
 %       Results = optimizeIPC_PI_RateLimits;
 %       Results = optimizeIPC_PI_RateLimits(struct('RateLimits',8,'TMax',100,'MaxFunEvals',2));
@@ -57,6 +67,10 @@ def.FiniteDiffStep = 1e-2;                                                 % fmi
 def.SaveTimeSeries = false;                                                % save OutData of baseline and optimum
 def.InitialStep   = [];                                                   % fminsearch: size of the initial simplex in gain units (default: 5 % of x0)
 def.SeedAggregation = "max";                                               % several wind files: "max" or "mean" of the costs
+def.Vars          = "IPC";                                                  % "IPC", "TEF_KP" or "TEF_KPKD"
+def.IPCGains      = [1.0959 0.2504];                                        % fixed IPC [K_P, K_I] for the TEF variants
+def.TEF_K_I       = 0;                                                      % TEF K_I (not optimized)
+def.TEFKDScale    = 0.01;                                                   % TEF_KPKD: K_D = x(2)*TEFKDScale
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -153,7 +167,7 @@ for r = 1:numel(opts.RateLimits)
     base = cell(1, nSeeds);
     for s = 1:nSeeds
         setWindFile(InflowWindFilePath, opts.WindFile(s));
-        base{s} = simulateIPC(mdl, SimConfig, [0 0], 0, opts);
+        base{s} = simulateIPC(mdl, SimConfig, struct('ipcOn', 0, 'ipc', [0 0], 'tefOn', 0, 'tef', [0 0 0]), opts);
         if ~base{s}.ok
             error('Baseline simulation failed for rate limit %g deg/s, wind file %s: %s', ...
                 rl, opts.WindFile(s), base{s}.msg);
@@ -206,7 +220,7 @@ for r = 1:numel(opts.RateLimits)
     relS = cell(1, nSeeds);
     for s = 1:nSeeds
         setWindFile(InflowWindFilePath, opts.WindFile(s));
-        best{s} = simulateIPC(mdl, SimConfig, xOpt, 1, opts);
+        best{s} = simulateIPC(mdl, SimConfig, gainsFromX(xOpt, opts), opts);
         if ~best{s}.ok
             error('Re-simulation of the optimum failed for wind file %s: %s', opts.WindFile(s), best{s}.msg);
         end
@@ -230,8 +244,13 @@ for r = 1:numel(opts.RateLimits)
 
     Results(r).RateLimit = rl;
     Results(r).Optimizer = opts.Optimizer;
-    Results(r).K_P       = xOpt(1);
-    Results(r).K_I       = xOpt(2);
+    gOpt = gainsFromX(xOpt, opts);
+    Results(r).K_P       = gOpt.ipc(1);
+    Results(r).K_I       = gOpt.ipc(2);
+    Results(r).TEF_K_P   = gOpt.tef(1);
+    Results(r).TEF_K_I   = gOpt.tef(2);
+    Results(r).TEF_K_D   = gOpt.tef(3);
+    Results(r).Vars      = opts.Vars;
     Results(r).Cost      = Jopt;
     Results(r).ExitFlag  = exitflag;
     Results(r).Output    = output;
@@ -250,17 +269,18 @@ for r = 1:numel(opts.RateLimits)
     writetable(History, fullfile(opts.ResultsFolder, sprintf('History_RL%02d.csv', rl)));
     save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'opts');
 
-    fprintf('\nRate limit %g deg/s: K_P = %.6f, K_I = %.6f, cost = %.4f (%d evaluations)\n', ...
-        rl, xOpt(1), xOpt(2), Jopt, output.funcCount);
+    fprintf('\nRate limit %g deg/s: K_P = %.6f, K_I = %.6f, TEF K_P = %.6f, K_I = %.6f, K_D = %.6f, cost = %.4f (%d evaluations)\n', ...
+        rl, gOpt.ipc(1), gOpt.ipc(2), gOpt.tef(1), gOpt.tef(2), gOpt.tef(3), Jopt, output.funcCount);
     fprintf('  DEL RootMyc1..3: %+.1f %+.1f %+.1f %%, DEL TwrBsMyt: %+.1f %%, pitch ADC: %+.1f %%, power: %+.2f %%\n', ...
         100*rel.RootMyc, 100*rel.TwrBsMyt, 100*rel.ADC, 100*rel.Power);
 end
 
 % Summary table
-Summary = table([Results.RateLimit]', [Results.K_P]', [Results.K_I]', [Results.Cost]', ...
+Summary = table([Results.RateLimit]', [Results.K_P]', [Results.K_I]', ...
+    [Results.TEF_K_P]', [Results.TEF_K_I]', [Results.TEF_K_D]', [Results.Cost]', ...
     arrayfun(@(s) 100*s.RelChange.TwrBsMyt, Results)', arrayfun(@(s) 100*s.RelChange.ADC, Results)', ...
     arrayfun(@(s) 100*s.RelChange.Power, Results)', ...
-    'VariableNames', {'RateLimit_degps', 'K_P', 'K_I', 'Cost_maxRelDEL_RootMyc', ...
+    'VariableNames', {'RateLimit_degps', 'K_P', 'K_I', 'TEF_K_P', 'TEF_K_I', 'TEF_K_D', 'Cost_maxRelDEL_RootMyc', ...
     'RelDEL_TwrBsMyt_pct', 'RelADC_pct', 'RelPower_pct'});
 disp(Summary);
 writetable(Summary, fullfile(opts.ResultsFolder, 'Summary.csv'));
@@ -292,7 +312,7 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
         relSd = repmat({struct('RootMyc', nan(1,3), 'TwrBsMyt', NaN, 'ADC', NaN, 'Power', NaN)}, 1, nSeeds);
         for sd = 1:nSeeds
             if nSeeds > 1, setWindFile(InflowWindFilePath, opts.WindFile(sd)); end
-            res = simulateIPC(mdl, SimConfig, x, 1, opts);
+            res = simulateIPC(mdl, SimConfig, gainsFromX(x, opts), opts);
             if ~res.ok
                 Js(sd) = 1;                                                % penalty for failed or unstable runs
                 break;                                                     % remaining wind files are not needed
@@ -306,10 +326,16 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
             J = mean(Js);
         end
         relx = aggregateRel(relSd);
-        row = table(datetime('now'), x(1), x(2), J, ...
+        g = gainsFromX(x, opts);
+        row = table(datetime('now'), g.ipc(1), g.ipc(2), J, ...
             relx.RootMyc(1), relx.RootMyc(2), relx.RootMyc(3), relx.TwrBsMyt, relx.ADC, relx.Power, ...
             'VariableNames', {'Time', 'K_P', 'K_I', 'Cost', 'RelDEL_RootMyc1', 'RelDEL_RootMyc2', ...
             'RelDEL_RootMyc3', 'RelDEL_TwrBsMyt', 'RelADC', 'RelPower'});
+        if g.tefOn
+            row.TEF_K_P = g.tef(1);
+            row.TEF_K_I = g.tef(2);
+            row.TEF_K_D = g.tef(3);
+        end
         if nSeeds > 1
             for sd = 1:nSeeds
                 row.(sprintf('Cost_seed%d', sd)) = Js(sd);
@@ -317,18 +343,40 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
             end
         end
         History = [History; row];
-        fprintf('  K_P = %9.5f, K_I = %9.5f -> J = %+.5f, tower %+.2f %%', x(1), x(2), J, 100*relx.TwrBsMyt);
+        fprintf('  K_P = %9.5f, K_I = %9.5f', g.ipc(1), g.ipc(2));
+        if g.tefOn, fprintf(', TEF K_P = %9.5f, K_D = %9.6f', g.tef(1), g.tef(3)); end
+        fprintf(' -> J = %+.5f, tower %+.2f %%', J, 100*relx.TwrBsMyt);
         if nSeeds > 1, fprintf(' (seeds: %s)', sprintf('%+.4f ', Js)); end
         fprintf('\n');
         cache(key) = {J, relx};
     end
 end
 
-function res = simulateIPC(mdl, SimConfig, x, ipcOn, opts)
-% Run one closed-loop simulation and evaluate loads, pitch activity and power
-SimConfig.controller.IPC.IPC_Cotroller_switch = ipcOn;
-SimConfig.controller.IPC.K_P = x(1);
-SimConfig.controller.IPC.K_I = x(2);
+function g = gainsFromX(x, opts)
+% Controller gains of the optimization variables x (see opts.Vars)
+switch opts.Vars
+    case "IPC"
+        g = struct('ipcOn', 1, 'ipc', x(1:2), 'tefOn', 0, 'tef', [0 0 0]);
+    case "TEF_KP"
+        g = struct('ipcOn', 1, 'ipc', opts.IPCGains, 'tefOn', 1, 'tef', [x(1), opts.TEF_K_I, 0]);
+    case "TEF_KPKD"
+        g = struct('ipcOn', 1, 'ipc', opts.IPCGains, 'tefOn', 1, ...
+            'tef', [x(1), opts.TEF_K_I, x(2)*opts.TEFKDScale]);
+    otherwise
+        error('Unknown opts.Vars "%s".', opts.Vars);
+end
+end
+
+function res = simulateIPC(mdl, SimConfig, g, opts)
+% Run one closed-loop simulation with the gains g (gainsFromX) and evaluate
+% loads, pitch activity and power
+SimConfig.controller.IPC.IPC_Cotroller_switch = g.ipcOn;
+SimConfig.controller.IPC.K_P = g.ipc(1);
+SimConfig.controller.IPC.K_I = g.ipc(2);
+SimConfig.controller.TEF.TEF_Cotroller_switch = g.tefOn;
+SimConfig.controller.TEF.K_P = g.tef(1);
+SimConfig.controller.TEF.K_I = g.tef(2);
+SimConfig.controller.TEF.K_D = g.tef(3);
 assignin('base', 'SimConfig', SimConfig);
 
 res.ok  = false;
@@ -375,7 +423,7 @@ power        = ch("GenPwr");
 genSpeed     = ch("GenSpeed");
 res.Power    = mean(power(idx));                                           % kW
 res.StdSpeed = std(genSpeed(idx));                                         % rpm
-res.x        = x;
+res.x        = g;
 if opts.SaveTimeSeries
     res.TS = struct('OutData', OutData, 'OutList', OutList);
 end
