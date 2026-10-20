@@ -130,6 +130,61 @@ Worst blade root DEL change (cost) / tower DEL change in %:
 - C1 and C2 give practically the same result except for the 8 deg/s fmincon gains (tower -0.1 %
   vs +3.5 %), again showing the sensitivity of the high-gain region.
 
+### 13 deg/s with the 8 deg/s gains (`SeedCheck/Seeds_RL13_x08_*`)
+
+Same table format (worst blade root DEL / tower DEL in %), A = optimization seed:
+
+| Gains (K_P, K_I) | Rate limit | A | B | C1 | C2 |
+|---|---|---|---|---|---|
+| 0.6222, 0.3168 | 8 deg/s  | -20.1 / -0.6 | -18.0 / +4.3 | -19.4 / +0.1 | -19.4 / +0.1 |
+| 0.6222, 0.3168 | 13 deg/s | -20.0 / -0.4 | **tower strike** | -19.4 / +0.1 | -19.4 / +0.1 |
+| 0.6323, 0.3415 | 13 deg/s | -20.6 / -4.5 | -18.2 / +5.5 | -19.4 / +0.1 | -19.4 / +0.1 |
+| 1.0959, 0.2504 | 8 deg/s  | -21.2 / -6.6 | -17.7 / -4.9 | -18.9 / -0.1 | -19.1 / +3.5 |
+| 1.0959, 0.2504 | 13 deg/s | -20.2 / -1.5 | -16.1 / +1.4 | -19.4 / +4.6 | -19.2 / -1.1 |
+
+- On seeds A and C the 8 deg/s gains give practically the same result at 13 deg/s (the rate limit
+  is rarely active).
+- On seed B the moderate gains (0.6222, 0.3168) lead to a tower strike at 13 deg/s, although the
+  same gains work at 8 deg/s and the very similar 13 deg/s gains (0.6323, 0.3415) work at 13 deg/s.
+  Seed B (highest turbulence) is close to the tower clearance limit, and small changes decide
+  whether a strike occurs. No gain set has been robust on all seeds and rate limits so far.
+
+## Re-optimization with the IPC/TEF fade-in (`FadeIn`)
+
+The runs above were done without the fade-in of the IPC and TEF inputs (0 until 20 s, linear to 1 at
+30 s). Without it the IPC swung the pitch in the first seconds, and part of the optima above are
+start-up artefacts (e.g. the 8 deg/s fmincon gains 1.0959 / 0.2504: tower -6.6 % without, -1.1 % with
+the fade-in). `FadeIn` contains the re-optimization with the fade-in, run one after another on the
+optimization seed (`reproduceIPC_FadeInOpt`):
+
+- fminsearch first (InitialStep [0.2 0.1], joint run [0.2 0.1 0.1]), then fmincon from its result
+  (tower constraint, bounds 0..2, TEF K_P 0..4, FiniteDiffStep 0.05 because of the noisy cost)
+- start values: 4 deg/s [0.75 0.22], 8 and 13 deg/s [0.8 0.3]; IPC + TEF jointly (`Vars` =
+  `"IPC_TEF_KP"`, TEF K_I = K_D = 0) at 8 deg/s from the 8 deg/s IPC result and TEF K_P = 0.24
+
+| Run | Rate limit | IPC K_P / K_I | TEF K_P | Worst blade root DEL | Tower DEL | Pitch ADC |
+|---|---|---|---|---|---|---|
+| IPC, fminsearch | 4 deg/s | 0.591 / 0.236 | - | -18.0 % | +1.4 % | +277 % |
+| IPC, fmincon | 4 deg/s | 0.253 / 0.103 | - | -15.1 % | 0.0 % | +225 % |
+| IPC, fminsearch | 8 deg/s | 1.222 / 0.370 | - | -20.6 % | -1.1 % | +409 % |
+| IPC, fmincon | 8 deg/s | unchanged | - | -20.6 % | -1.1 % | +409 % |
+| IPC + TEF, fminsearch | 8 deg/s | 0.082 / 0.669 | 0.641 | -22.7 % | -1.0 % | +266 % |
+| IPC + TEF, fmincon | 8 deg/s | unchanged | 0.641 | -22.7 % | -1.0 % | +266 % |
+| IPC, fminsearch | 13 deg/s | 1.223 / 0.365 | - | -20.5 % | -0.8 % | +409 % |
+| IPC, fmincon | 13 deg/s | unchanged | - | -20.5 % | -0.8 % | +409 % |
+
+- 8 and 13 deg/s end at almost the same gains and DELs; the IPC does not use the extra rate.
+- The joint IPC + TEF optimization gives -22.7 % instead of -20.6 % (IPC only) and -21.4 % (TEF on top
+  of fixed IPC gains), with much less pitch activity (+266 % instead of +409 %): small IPC K_P, larger
+  K_I, and the TEF takes more of the work. The gain of about 2 percentage points is not much above
+  the noise of about 1 percentage point; it still needs a check on another seed.
+- With the fade-in the IPC hardly changes the tower DEL (-1.1 % to +1.4 %).
+- 4 deg/s: the fminsearch point violates the tower constraint (+1.4 %), so fmincon moves to a feasible
+  point (tower +0.03 %) with a clearly worse blade DEL (-15.1 %).
+- At 8 and 13 deg/s fmincon keeps the start point (feasible, no better point found).
+
+`FadeIn/best.mat` holds the gains of all runs, `FadeIn/Logs.zip` the logs.
+
 ## Files
 
 Each run folder contains:
@@ -147,6 +202,7 @@ From the `Main` folder in MATLAB (do not call scripts that use `restoredefaultpa
 ```matlab
 reproduceIPC_PI_RateLimitOpt            % all runs, one after another
 reproduceIPC_PI_RateLimitOpt("RL08")    % one run
+reproduceIPC_FadeInOpt                  % re-optimization with the fade-in (FadeIn)
 ```
 
 The output goes to `Main/Post_processing/IPC_PI_RateLimitOpt_<run>` (git-ignored). One run takes
