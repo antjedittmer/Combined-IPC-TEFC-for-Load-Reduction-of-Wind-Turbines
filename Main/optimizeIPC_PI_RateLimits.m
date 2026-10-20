@@ -37,6 +37,8 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   - "TEF_KPKD": [K_P, K_D/opts.TEFKDScale] of the TEF controller (K_D
 %     scaled, default 0.01, so that both variables have a similar size), IPC
 %     on with opts.IPCGains
+%   - "IPC_TEF_KP": [K_P, K_I] of the IPC and K_P of the TEF controller
+%     together (TEF K_D = 0)
 %   The TEF K_I is opts.TEF_K_I (default 0). The baseline is always IPC and
 %   TEF off, so the costs of all variants are comparable.
 %
@@ -67,7 +69,7 @@ def.FiniteDiffStep = 1e-2;                                                 % fmi
 def.SaveTimeSeries = false;                                                % save OutData of baseline and optimum
 def.InitialStep   = [];                                                   % fminsearch: size of the initial simplex in gain units (default: 5 % of x0)
 def.SeedAggregation = "max";                                               % several wind files: "max" or "mean" of the costs
-def.Vars          = "IPC";                                                  % "IPC", "TEF_KP" or "TEF_KPKD"
+def.Vars          = "IPC";                                                  % "IPC", "TEF_KP", "TEF_KPKD" or "IPC_TEF_KP"
 def.IPCGains      = [1.0959 0.2504];                                        % fixed IPC [K_P, K_I] for the TEF variants
 def.TEF_K_I       = 0;                                                      % TEF K_I (not optimized)
 def.TEFKDScale    = 0.01;                                                   % TEF_KPKD: K_D = x(2)*TEFKDScale
@@ -362,6 +364,8 @@ switch opts.Vars
     case "TEF_KPKD"
         g = struct('ipcOn', 1, 'ipc', opts.IPCGains, 'tefOn', 1, ...
             'tef', [x(1), opts.TEF_K_I, x(2)*opts.TEFKDScale]);
+    case "IPC_TEF_KP"
+        g = struct('ipcOn', 1, 'ipc', x(1:2), 'tefOn', 1, 'tef', [x(3), opts.TEF_K_I, 0]);
     otherwise
         error('Unknown opts.Vars "%s".', opts.Vars);
 end
