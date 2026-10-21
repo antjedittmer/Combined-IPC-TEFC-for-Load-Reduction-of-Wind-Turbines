@@ -19,7 +19,9 @@ function P = plotIPC_PSD_RateLimits(opts)
 %                  Post_processing/IPC_PI_TS_RL04_opt, IPC_PI_TS_RL08_x08
 %                  and IPC_PI_TS_RL13_opt reduced to 25 channels)
 %     RateLimits   rate limits of the files in deg/s (default: from the
-%                  file names TimeSeries_RLxx.mat)
+%                  file names TimeSeries_RLxx*.mat)
+%     Labels       legend and table labels of the IPC runs (default
+%                  "IPC, <rate limit>°/s")
 %     Channels     FAST channels (default RootMyc1, TwrBsMyt, TwrBsMxt,
 %                  YawBrMyp, NcIMUTAxs, BldPitch1)
 %     BaselineRate rate limit of the plotted baseline (default 8)
@@ -31,18 +33,14 @@ function P = plotIPC_PSD_RateLimits(opts)
 %     FigDir       output folder (default plotFunktionen/figIPC_RateLimits)
 %     FigName      file name of the figure (default fig03_PSD_ratecomp)
 %
-%   Example with the gains of the fade-in optimization: first store the
-%   time series (one rate limit after another, not in parallel), e.g. for
-%   8 deg/s from the Main folder
-%       optimizeIPC_PI_RateLimits(struct('RateLimits', 8, 'Optimizer', "none", ...
-%           'x0', [1.2219 0.3702], 'SaveTimeSeries', true, ...
-%           'ResultsFolder', fullfile(pwd, 'Post_processing', 'IPCfade_TS_RL08')));
-%   (4 deg/s: [0.5906 0.2356], 13 deg/s: [1.2227 0.3653]), then
-%       pp = fullfile(pwd, 'Post_processing');
+%   Example with the fmincon gains of the fade-in optimization (time series
+%   in Results_IPC_PI_RateLimitOpt/FadeIn/TimeSeries, created with
+%   storeIPC_FadeInTimeSeries), from the Main folder:
+%       ts = fullfile(pwd, 'Results_IPC_PI_RateLimitOpt', 'FadeIn', 'TimeSeries');
 %       plotIPC_PSD_RateLimits(struct('Files', ...
-%           string({fullfile(pp, 'IPCfade_TS_RL04', 'TimeSeries_RL04.mat'), ...
-%                   fullfile(pp, 'IPCfade_TS_RL08', 'TimeSeries_RL08.mat'), ...
-%                   fullfile(pp, 'IPCfade_TS_RL13', 'TimeSeries_RL13.mat')}), ...
+%           string(fullfile(ts, {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', ...
+%                                'TimeSeries_RL13.mat', 'TimeSeries_RL08_IPCTEF.mat'})), ...
+%           'Labels', ["IPC, 4°/s", "IPC, 8°/s", "IPC, 13°/s", "IPC + TEF, 8°/s"], ...
 %           'FigName', 'fig03_PSD_ratecomp_fadeIn'));
 
 arguments
@@ -53,6 +51,7 @@ plotDir = fileparts(mfilename('fullpath'));
 tsDir = fullfile(fileparts(plotDir), 'Results_IPC_PI_RateLimitOpt', 'TimeSeries');
 def.Files = string(fullfile(tsDir, {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', 'TimeSeries_RL13.mat'}));
 def.RateLimits   = [];
+def.Labels       = [];
 def.Channels     = ["RootMyc1", "TwrBsMyt", "TwrBsMxt", "YawBrMyp", "NcIMUTAxs", "BldPitch1"];
 def.BaselineRate = 8;
 def.TStart       = 66;
@@ -69,7 +68,7 @@ files = string(opts.Files);
 channels = string(opts.Channels);
 nRuns = numel(files);
 if isempty(opts.RateLimits)
-    tok = regexp(cellstr(files), 'TimeSeries_RL(\d+)\.mat$', 'tokens', 'once');
+    tok = regexp(cellstr(files), 'TimeSeries_RL(\d+)[^\\/]*\.mat$', 'tokens', 'once');
     if any(cellfun(@isempty, tok))
         error('Cannot read the rate limit from the file names; set opts.RateLimits.');
     end
@@ -77,6 +76,13 @@ if isempty(opts.RateLimits)
 end
 if numel(opts.RateLimits) ~= nRuns
     error('opts.RateLimits must have one entry per file.');
+end
+if isempty(opts.Labels)
+    opts.Labels = "IPC, " + opts.RateLimits + "°/s";
+end
+labels = string(opts.Labels);
+if numel(labels) ~= nRuns
+    error('opts.Labels must have one entry per file.');
 end
 if ~isfolder(opts.FigDir), mkdir(opts.FigDir); end
 
@@ -116,23 +122,23 @@ iF = f <= opts.FMax;
 peak = @(Pk, fn) max(Pk(f >= 0.85*fn & f <= 1.15*fn));
 fprintf('\nPSD comparison from %g s, 1P = %.3f Hz; baseline %g deg/s; changes relative to the baseline\n', ...
     opts.TStart, f1P, rlBase);
-fprintf('%-10s %-14s', 'Channel', '');
-fprintf(' %12s', "IPC " + opts.RateLimits + " deg/s");
+fprintf('%-10s %-10s', 'Channel', '');
+fprintf(' %18s', labels);
 fprintf('\n');
 for c = 1:numel(channels)
     ch = channels(c);
     for n = 1:3
         pb = peak(P.Baseline.(ch), n*f1P);
-        fprintf('%-10s %-14s', ch, sprintf('%dP peak', n));
+        fprintf('%-10s %-10s', ch, sprintf('%dP peak', n));
         for k = 1:nRuns
-            fprintf(' %+11.0f%%', 100*(peak(P.IPC{k}.(ch), n*f1P)/pb - 1));
+            fprintf(' %+17.0f%%', 100*(peak(P.IPC{k}.(ch), n*f1P)/pb - 1));
         end
         fprintf('\n');
     end
     sb = std(base.(ch)(base.Time >= opts.TStart));
-    fprintf('%-10s %-14s', ch, 'std');
+    fprintf('%-10s %-10s', ch, 'std');
     for k = 1:nRuns
-        fprintf(' %+11.0f%%', 100*(std(ipc{k}.(ch)(ipc{k}.Time >= opts.TStart))/sb - 1));
+        fprintf(' %+17.0f%%', 100*(std(ipc{k}.(ch)(ipc{k}.Time >= opts.TStart))/sb - 1));
     end
     fprintf('\n');
 end
@@ -152,7 +158,7 @@ for c = 1:nCh
         'DisplayName', sprintf('Baseline, %g°/s', rlBase));
     for k = 1:nRuns
         plot(ax, f(iF), P.IPC{k}.(ch)(iF), 'Color', cl{mod(k-1, numel(cl)) + 1}, 'LineWidth', 1, ...
-            'DisplayName', sprintf('IPC, %g°/s', opts.RateLimits(k)));
+            'DisplayName', labels(k));
     end
     for n = 1:3
         xline(ax, n*f1P, ':', sprintf('%dP', n), 'HandleVisibility', 'off', ...

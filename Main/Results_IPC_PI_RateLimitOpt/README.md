@@ -185,6 +185,24 @@ optimization seed (`reproduceIPC_FadeInOpt`):
 
 `FadeIn/best.mat` holds the gains of all runs, `FadeIn/Logs.zip` the logs.
 
+`FadeIn/TimeSeries` contains the time series (baseline and optimum, 25 channels as in `TimeSeries`)
+of the fmincon gains: `TimeSeries_RL04.mat`, `_RL08.mat`, `_RL13.mat` (IPC) and
+`TimeSeries_RL08_IPCTEF.mat` (IPC + TEF at 8 deg/s). They are created with
+`storeIPC_FadeInTimeSeries` (from `Main`, about 3 min per run; the full files go to the git-ignored
+`Post_processing/IPCfade_TS_<run>`) and plotted without simulation with
+
+```matlab
+ts = fullfile(pwd, 'Results_IPC_PI_RateLimitOpt', 'FadeIn', 'TimeSeries');
+plotIPC_PSD_RateLimits(struct('Files', ...
+    string(fullfile(ts, {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', ...
+                         'TimeSeries_RL13.mat', 'TimeSeries_RL08_IPCTEF.mat'})), ...
+    'Labels', ["IPC, 4°/s", "IPC, 8°/s", "IPC, 13°/s", "IPC + TEF, 8°/s"], ...
+    'FigName', 'fig03_PSD_ratecomp_fadeIn'));
+```
+
+The re-simulations reproduce the costs of the optimization (e.g. -0.2053 at 13 deg/s, -0.2269 for
+IPC + TEF). The 8 and 13 deg/s PSDs lie on top of each other (almost identical gains).
+
 ## PSD plots (`TimeSeries`)
 
 `TimeSeries/TimeSeries_RL04.mat`, `_RL08.mat` and `_RL13.mat` contain the baseline and the
