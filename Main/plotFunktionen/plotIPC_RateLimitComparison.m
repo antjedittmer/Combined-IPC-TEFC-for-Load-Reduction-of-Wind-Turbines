@@ -243,7 +243,7 @@ end
 grid on; axis tight;
 xline(f1P, ':', 'HandleVisibility', 'off');
 xline(2*f1P, ':', 'HandleVisibility', 'off');
-xlabel(sprintf('Frequency (Hz), dotted: 1P = %.3f Hz and 2P', f1P));
+xlabel(sprintf('Frequency (Hz), dotted: 1P = %.1f Hz and 2P', f1P));
 ylabel('PSD M_{yb,1} (kNm^2/Hz)');
 % Legend as coloured title (the split axis below replaces the axes)
 rgb = @(c) ['\color[rgb]{', sprintf('%g,%g,%g', c), '}'];
@@ -251,13 +251,19 @@ titleStr = ['\color{black}Baseline 8°/s;  ', rgb(cl{2}), 'IPC 4°/s;  ', rgb(cl
     rgb(cl{4}), 'IPC 13°/s'];
 % Split y axis between the IPC curves and the baseline 1P peak
 yLow = 1e7;                                                                % lower pane up to 10^7
-yHigh = 0.8*pb(1);
 yl = ylim;
 ylim([0, 1.02*yl(2)]);
+% Upper pane with 2/3 of the y range of the lower one, so that the upper
+% pane covers about 2/5 and the lower one 3/5 of the plot (below the
+% baseline 1P peak, so that it stays visible)
+yHigh = min(1.02*yl(2) - 2/3*yLow, 0.98*pb(1));
 if yHigh > 1.5*yLow
     [~, br] = evalc('breakyaxis([yLow, yHigh])');                         % breakyaxis prints an axes
     title(br.highAxes, titleStr, 'FontWeight', 'normal');
     axPanes = [br.lowAxes, br.highAxes];
+    % Lower pane: ticks up to the split at 10^7, labelled as x10^7
+    br.lowAxes.YTick = (0:0.25:1)*yLow;
+    br.lowAxes.YAxis.Exponent = round(log10(yLow));
 else
     title(titleStr, 'FontWeight', 'normal');
     axPanes = gca;
