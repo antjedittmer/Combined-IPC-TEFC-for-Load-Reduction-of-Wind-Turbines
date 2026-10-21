@@ -29,6 +29,12 @@ function plotIPC_PSD_Paper(opts)
 %     FigNames     file names, one per group (default
 %                  fig02_PSDroot_breaky_<file suffixes>)
 %     mP           figure height relative to the default (default 0.65)
+%     PSDFile      precomputed PSDs (e.g. PSD_RL08_AALC.mat of storeAALC_PSD)
+%                  instead of Files: the runs are P.Runs, the labels
+%                  default to P.Labels, the baseline is P.Baseline (fast,
+%                  no time series needed)
+%     StyleIdx     colour/line style of each file or run (1 blue, 2 green,
+%                  3 red, 4 magenta; default: position within the group)
 %
 %   Example, pitch rate limit comparison before the fade-in:
 %       ts = fullfile('..', 'Results_IPC_PI_RateLimitOpt', 'TimeSeries');
@@ -36,6 +42,9 @@ function plotIPC_PSD_Paper(opts)
 %           {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', 'TimeSeries_RL13.mat'})), ...
 %           'Labels', ["IPC 4°/s", "IPC 8°/s", "IPC 13°/s"], 'Groups', {1:3}, ...
 %           'FigNames', "fig02_PSDroot_breaky_IPC_old"));
+%   Example with precomputed PSDs (see plotAALC_PSD_comparison):
+%       plotIPC_PSD_Paper(struct('PSDFile', fullfile(ts, 'PSD_RL08_AALC.mat'), ...
+%           'Groups', {{[1 2], [3 5]}}, 'StyleIdx', [1 2 3 1 4]));
 
 arguments
     opts struct = struct()
@@ -44,7 +53,7 @@ end
 plotDir = fileparts(mfilename('fullpath'));
 addpath(fullfile(plotDir, 'breakyaxis'));
 ts = fullfile(fileparts(plotDir), 'Results_IPC_PI_RateLimitOpt', 'FadeIn', 'TimeSeries');
-isDefault = ~isfield(opts, 'Files');
+isDefault = ~isfield(opts, 'Files') && ~isfield(opts, 'PSDFile');
 def.Files        = string(fullfile(ts, {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', ...
                                         'TimeSeries_RL13.mat', 'TimeSeries_RL08_IPCTEF.mat'}));
 def.Labels       = ["IPC 4°/s", "IPC 8°/s", "IPC 13°/s", "IPC + TEFC 8°/s"];
@@ -57,6 +66,16 @@ def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigNames     = [];
 def.mP           = 0.65;
+def.PSDFile      = "";
+def.StyleIdx     = [];
+Q = [];
+if isfield(opts, 'PSDFile') && opts.PSDFile ~= ""
+    S = load(opts.PSDFile, 'P');
+    Q = S.P;
+    opts.Files = Q.Files;
+    if ~isfield(opts, 'Labels'), opts.Labels = Q.Labels; end
+    def.TStart = Q.TStart;
+end
 if ~isDefault && ~isfield(opts, 'Groups')
     def.Groups = num2cell(1:numel(opts.Files));                            % one figure per file
 end
@@ -99,8 +118,17 @@ for g = 1:numel(groups)
     kB = find(rates(idx) == opts.BaselineRate, 1);
     if isempty(kB), kB = 1; end
     rlB = rates(idx(kB));
-    P = plotIPC_PSD_RateLimits(struct('Files', files(idx), 'RateLimits', rates(idx), ...
-        'BaselineRate', rlB, 'Channels', opts.Channel, 'TStart', opts.TStart, 'Plot', false));
+    if isempty(Q)
+        P = plotIPC_PSD_RateLimits(struct('Files', files(idx), 'RateLimits', rates(idx), ...
+            'BaselineRate', rlB, 'Channels', opts.Channel, 'TStart', opts.TStart, 'Plot', false));
+    else
+        P = struct('f', Q.f, 'f1P', Q.f1P, 'Baseline', Q.Baseline, 'IPC', {Q.Runs(idx)});
+    end
+    if isempty(opts.StyleIdx)
+        st = 1:numel(idx);
+    else
+        st = opts.StyleIdx(idx);
+    end
     iF = P.f <= opts.FMax;
     f = P.f(iF);
     Y = [{P.Baseline.(opts.Channel)(iF)}, cellfun(@(c) c.(opts.Channel)(iF), P.IPC, 'UniformOutput', false)];
@@ -128,7 +156,7 @@ for g = 1:numel(groups)
     set(nf, 'Name', sprintf('PSD %s: %s', opts.Channel, join(labels(idx), ', ')), 'NumberTitle', 'off');
     plot(f, Y{1}, 'k-', 'LineWidth', lw); hold on;
     for j = 1:nC
-        plot(f, Y{j+1}, ls{j}, 'Color', cl{j}, 'LineWidth', lw);
+        plot(f, Y{j+1}, ls{st(j)}, 'Color', cl{st(j)}, 'LineWidth', lw);
     end
     axis tight; grid on;
     xlabel('Frequency, Hz', 'FontSize', fs);
@@ -137,7 +165,7 @@ for g = 1:numel(groups)
     ylim([yl(1), yl(2) + 0.01*(yl(2) - yl(1))]);
     titleStr = sprintf('Baseline %d°/s', rlB);
     for j = 1:nC
-        titleStr = [titleStr, '; ', clTitle{j}, char(labels(idx(j)))]; %#ok<AGROW>
+        titleStr = [titleStr, '; ', clTitle{st(j)}, char(labels(idx(j)))]; %#ok<AGROW>
     end
 
     % Split between the highest value below the baseline 1P peak and the peak
@@ -156,7 +184,7 @@ for g = 1:numel(groups)
         axPanes = gca;
     end
 
-    clAll = [{[0 0 0]}, cl];
+    clAll = [{[0 0 0]}, cl(st)];
     if nC == 1
         % Peak values as text arrows (as in the paper)
         for r = 1:2
@@ -170,15 +198,16 @@ for g = 1:numel(groups)
         addArrow(axPanes, fpk(1,1), pk(1,1), sprintf('%2.2e', pk(1,1)), clAll{1}, fs, 0);
         axLow = axPanes(1);
         ylL = get(axLow, 'YLim');
+        dyL = 0.22*isscalar(axPanes);                                      % no split: below the baseline arrow
         for n = 1:2
             rows = (1 + (n == 1)):(nC + 1);                                % 1P: baseline peak is in the high pane
             for i = 1:numel(rows)
                 r = rows(i);
                 plot(axLow, fpk(r,n), pk(r,n), 'o', 'Color', clAll{r}, 'MarkerSize', 5, 'LineWidth', lw);
-                text(axLow, n*P.f1P + 0.03, ylL(2) - (0.19 + 0.11*(i - 1))*diff(ylL), ...
+                text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.19 + 0.11*(i - 1))*diff(ylL), ...
                     sprintf('%2.2e', pk(r,n)), 'Color', clAll{r}, 'FontSize', fs - 2);
             end
-            text(axLow, n*P.f1P + 0.03, ylL(2) - 0.08*diff(ylL), ...
+            text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.08)*diff(ylL), ...
                 sprintf('%dP peaks:', n), 'Color', [0.3 0.3 0.3], 'FontSize', fs - 2);
         end
     end
