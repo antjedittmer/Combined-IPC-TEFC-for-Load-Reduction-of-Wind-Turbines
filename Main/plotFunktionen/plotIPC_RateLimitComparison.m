@@ -11,12 +11,13 @@ function plotIPC_RateLimitComparison(figDir, dataSet)
 %     8 deg/s:  K_P = 1.2219, K_I = 0.3702
 %     13 deg/s: K_P = 1.2227, K_I = 0.3653
 %     The figure names get the suffix _fadeIn.
-%   - "beforeFadeIn": the gains of the thesis figures of section 4.2
-%     (before the fade-in, model of commit 6cb257c),
-%     Results_IPC_PI_RateLimitOpt/TimeSeries (copies of
-%     Post_processing/IPC_PI_TS_RL04_opt, _RL08_x08, _RL13_opt):
-%     4 deg/s:  K_P = 0.7455, K_I = 0.2168 (fminsearch, RL04_refine; the
-%               fmincon run RL04_fmincon ended at the same point)
+%   - "beforeFadeIn": fmincon gains before the fade-in (model of commit
+%     6cb257c), Results_IPC_PI_RateLimitOpt/TimeSeries (copies of
+%     Post_processing/IPC_PI_TS_RL04_fmincon, _RL08_x08, _RL13_opt):
+%     4 deg/s:  K_P = 0.7438, K_I = 0.2163 (RL04_fmincon ended infeasible
+%               at its start point, the fminsearch result 0.7455/0.2168
+%               with tower +0.6 %; this is the best feasible point of its
+%               history, tower -1.5 %; TimeSeries_RL04_fmincon.mat)
 %     8 deg/s:  K_P = 1.0959, K_I = 0.2504 (fmincon, RL08_fmincon)
 %     13 deg/s: K_P = 0.9669, K_I = 0.2209 (fmincon, RL13_fmincon_x08)
 %   Baseline (CPC PI, IPC off) with the standard rate limit of 8 deg/s.
@@ -45,19 +46,20 @@ resDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Results_IPC_PI_R
 switch string(dataSet)
     case "fadeIn"
         tsDir = fullfile(resDir, 'FadeIn', 'TimeSeries');
+        tsFiles = {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', 'TimeSeries_RL13.mat'};
         B = load(fullfile(resDir, 'FadeIn', 'best.mat'), 'best');
         gains = {B.best.RL04_IPC_fmincon, B.best.RL08_IPC_fmincon, B.best.RL13_IPC_fmincon};
         figSuffix = '_fadeIn';
     case "beforeFadeIn"
         tsDir = fullfile(resDir, 'TimeSeries');
-        gains = {[0.7455 0.2168], [1.0959 0.2504], [0.9669 0.2209]};
+        tsFiles = {'TimeSeries_RL04_fmincon.mat', 'TimeSeries_RL08.mat', 'TimeSeries_RL13.mat'};
+        gains = {[0.7438 0.2163], [1.0959 0.2504], [0.9669 0.2209]};
         figSuffix = '';
     otherwise
         error('Unknown dataSet "%s" ("fadeIn" or "beforeFadeIn").', dataSet);
 end
 cases = struct('rl', {4, 8, 13}, ...
-    'file', {fullfile(tsDir, 'TimeSeries_RL04.mat'), fullfile(tsDir, 'TimeSeries_RL08.mat'), ...
-             fullfile(tsDir, 'TimeSeries_RL13.mat')}, ...
+    'file', fullfile(tsDir, tsFiles), ...
     'gains', gains);
 fprintf('Data set %s: %s\n', dataSet, tsDir);
 tStart = 66; % s, evaluation window as in the optimization
@@ -138,39 +140,44 @@ for k = 1:numel(yAx)
     ylabel(yAx{k});
 end
 cPitch = [0 0.4470 0.7410; 0.8500 0.3250 0.0980; 0.9290 0.6940 0.1250]; % blue, red, yellow
+cCPC = [0.4940 0.1840 0.5560];                                             % purple
+% CPC (baseline) first, i.e. below the IPC line; in the pitch plot last, on top
 idxAx = 1;
 plot(ax(idxAx), tb, base.Wind1VelX(ib), 'k');
 idxAx = 1+idxAx;
 
-if 10 < std(ipc.GenTq(ii)) 
-plot(ax(idxAx), tb, base.GenTq(ib), 'k', 'DisplayName', 'Baseline (8°/s)');
-plot(ax(idxAx), ti, ipc.GenTq(ii), 'Color', cPitch(1,:), 'DisplayName', sprintf('IPC (%d°/s)', c.rl));
+if 10 < std(ipc.GenTq(ii))
+plot(ax(idxAx), tb, base.GenTq(ib), 'Color', cCPC);
+plot(ax(idxAx), ti, ipc.GenTq(ii), 'Color', cPitch(1,:));
 idxAx = 1+idxAx;
 end
 
-plot(ax(idxAx), tb, base.BldPitch1(ib), 'k', 'LineWidth', 1.2);
 for b = 1:3
     plot(ax(idxAx), ti, ipc.(sprintf('BldPitch%d', b))(ii), 'Color', cPitch(b,:));
 end
+plot(ax(idxAx), tb, base.BldPitch1(ib), 'Color', cCPC, 'LineWidth', 1.2);
 idxAx = 1+idxAx;
 
-plot(ax(idxAx), tb, base.RotSpeed(ib), 'k');
+plot(ax(idxAx), tb, base.RotSpeed(ib), 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.RotSpeed(ii), 'Color', cPitch(1,:));
 idxAx = 1+idxAx;
 
-plot(ax(idxAx), tb, base.NcIMUTAxs(ib), 'k');
+plot(ax(idxAx), tb, base.NcIMUTAxs(ib), 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.NcIMUTAxs(ii), 'Color', cPitch(1,:));
 idxAx = 1+idxAx;
 
-plot(ax(idxAx), tb, base.GenPwr(ib)/1000, 'k');
+plot(ax(idxAx), tb, base.GenPwr(ib)/1000, 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.GenPwr(ii)/1000, 'Color', cPitch(1,:));
 idxAx = 1+idxAx;
 
-plot(ax(idxAx), tb, base.RootMyc1(ib)/1000, 'k');
+plot(ax(idxAx), tb, base.RootMyc1(ib)/1000, 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
-title(ax(1), sprintf('Baseline (black) vs. IPC PI (K_P = %.4f, K_I = %.4f), pitch rate limit %d°/s', ...
-    c.gains(1), c.gains(2), c.rl));
-legend(ax(2), 'Location', 'northeast');
+% Legend as coloured title (no legends in the plots)
+rgb = @(cc) ['\color[rgb]{', sprintf('%g,%g,%g', cc), '}'];
+title(ax(1), {[rgb(cCPC), 'CPC (8°/s)', '\color{black} vs. ', rgb(cPitch(1,:)), ...
+        sprintf('IPC PI (K_P = %.4f, K_I = %.4f), %d°/s', c.gains(1), c.gains(2), c.rl)], ...
+    ['\color{black}Pitch IPC: ', rgb(cPitch(1,:)), 'blade 1, ', rgb(cPitch(2,:)), 'blade 2, ', ...
+        rgb(cPitch(3,:)), 'blade 3']}, 'FontWeight', 'normal');
 linkaxes(ax, 'x'); axis(ax, 'tight');
 
 if 10 < std(ipc.GenTq(ii)) 

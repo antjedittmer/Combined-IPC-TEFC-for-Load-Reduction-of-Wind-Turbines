@@ -229,7 +229,9 @@ fade-in gains and plot them.
 
 `plotIPC_RateLimitComparison` (time series and PSD figures of section 4.2) also reads these
 committed files: `plotIPC_RateLimitComparison([], "beforeFadeIn")` gives the figures with the
-gains above, `plotIPC_RateLimitComparison` (default `"fadeIn"`) those with the fmincon gains of
+fmincon gains before the fade-in (8 and 13 deg/s as above; 4 deg/s: the best feasible point of
+`RL04_fmincon`, K_P = 0.7438, K_I = 0.2163, `TimeSeries/TimeSeries_RL04_fmincon.mat`, because
+fmincon ended infeasible at the fminsearch point), `plotIPC_RateLimitComparison` (default `"fadeIn"`) those with the fmincon gains of
 `FadeIn/TimeSeries` (figure names with the suffix `_fadeIn`).
 
 ## Files
