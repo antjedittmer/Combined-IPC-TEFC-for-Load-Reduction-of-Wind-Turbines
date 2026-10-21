@@ -185,6 +185,30 @@ optimization seed (`reproduceIPC_FadeInOpt`):
 
 `FadeIn/best.mat` holds the gains of all runs, `FadeIn/Logs.zip` the logs.
 
+## PSD plots (`TimeSeries`)
+
+`TimeSeries/TimeSeries_RL04.mat`, `_RL08.mat` and `_RL13.mat` contain the baseline and the
+optimum of `RL04_refine` (K_P = 0.7455, K_I = 0.2168), `RL08_fmincon` (1.0959, 0.2504) and
+`RL13_fmincon_x08` (0.9669, 0.2209), simulated before the IPC/TEF fade-in with
+`'SaveTimeSeries', true` (18 m/s, class A, 660 s). They are copies of
+`Main/Post_processing/IPC_PI_TS_RL04_opt`, `IPC_PI_TS_RL08_x08` and `IPC_PI_TS_RL13_opt`
+(git-ignored, 70 MB each), reduced to 25 channels (wind, pitch, rotor and generator speed,
+blade root, yaw bearing and tower base moments, nacelle acceleration, power, torque) at the
+full sample time of 0.01 s. Each file holds its own baseline at the same rate limit.
+
+From `Main/plotFunktionen` (or with it on the path):
+
+```matlab
+P = plotIPC_PSD_RateLimits;   % figIPC_RateLimits/fig03_PSD_ratecomp.png/.eps
+```
+
+plots the PSDs (Welch, Hann window of 2^14 samples) of the baseline at 8 deg/s and the IPC at
+4, 8 and 13 deg/s for RootMyc1, TwrBsMyt, TwrBsMxt, YawBrMyp, NcIMUTAxs and BldPitch1 and prints
+the changes of the 1P, 2P and 3P peaks and of the standard deviations. Channels, files, window
+and frequency range are options (`help plotIPC_PSD_RateLimits`). It needs the Signal Processing
+Toolbox (`pwelch`), but no simulation. The help also shows how to store the time series of the
+fade-in gains and plot them.
+
 ## Files
 
 Each run folder contains:
