@@ -243,11 +243,9 @@ for k = 1:numel(ipc)
         'DisplayName', sprintf('IPC, %d°/s', cases(k).rl));
 end
 grid on; axis tight;
-% Dotted lines at 1P and 2P, labelled on the line
-xline(f1P, ':', '1P', 'LabelOrientation', 'horizontal', ...
-    'LabelVerticalAlignment', 'bottom', 'LabelHorizontalAlignment', 'left', 'HandleVisibility', 'off');
-xline(2*f1P, ':', '2P', 'LabelOrientation', 'horizontal', ...
-    'LabelVerticalAlignment', 'bottom', 'LabelHorizontalAlignment', 'left', 'HandleVisibility', 'off');
+% Dotted lines at 1P and 2P (labelled in the upper pane below)
+xline(f1P, ':', 'HandleVisibility', 'off');
+xline(2*f1P, ':', 'HandleVisibility', 'off');
 xlabel('Frequency (Hz)');
 ylabel('PSD M_{yc,1} (kNm^2/Hz)');
 % Legend as coloured title (the split axis below replaces the axes)
@@ -274,18 +272,22 @@ if yHigh > 1.5*yLow
     % Lower pane: ticks every 10^7 up to the split, labelled as x10^7
     br.lowAxes.YTick = 0:1e7:yLow;
     br.lowAxes.YAxis.Exponent = 7;
-    % 1P and 2P labels only in the upper pane (breakyaxis copies the axes)
-    axOther = setdiff(findall(gcf, 'Type', 'axes'), br.highAxes);
-    set(findall(axOther, 'Type', 'ConstantLine'), 'Label', '');
 else
     title(titleStr, 'FontWeight', 'bold');
     axPanes = gca;
+end
+hPk = gobjects(0);                                                         % peak value texts
+% 1P and 2P labels once, left of the dotted lines, slightly above the
+% bottom of the upper pane
+ylH = get(axPanes(end), 'YLim');
+for n = 1:2
+    text(axPanes(end), n*f1P - 0.012, ylH(1) + 0.1*diff(ylH), sprintf('%dP', n), ...
+        'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom');
 end
 % Baseline 1P peak as text arrow, the other 1P and 2P peaks as circles in
 % the line colours with their values listed in the same colours in the
 % lower pane next to the 1P and 2P lines (as plotIPC_PSD_Paper)
 Pall = [{Pb}, P];
-hPk = gobjects(0);                                                         % peak value texts
 axTxt = axPanes(1);
 ylT = get(axTxt, 'YLim');
 for n = 1:2
