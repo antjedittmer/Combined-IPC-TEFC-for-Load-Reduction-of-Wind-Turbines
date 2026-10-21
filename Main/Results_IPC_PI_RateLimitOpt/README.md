@@ -185,6 +185,55 @@ optimization seed (`reproduceIPC_FadeInOpt`):
 
 `FadeIn/best.mat` holds the gains of all runs, `FadeIn/Logs.zip` the logs.
 
+`FadeIn/TimeSeries` contains the time series (baseline and optimum, 25 channels as in `TimeSeries`)
+of the fmincon gains: `TimeSeries_RL04.mat`, `_RL08.mat`, `_RL13.mat` (IPC) and
+`TimeSeries_RL08_IPCTEF.mat` (IPC + TEF at 8 deg/s). They are created with
+`storeIPC_FadeInTimeSeries` (from `Main`, about 3 min per run; the full files go to the git-ignored
+`Post_processing/IPCfade_TS_<run>`) and plotted without simulation with
+
+```matlab
+ts = fullfile(pwd, 'Results_IPC_PI_RateLimitOpt', 'FadeIn', 'TimeSeries');
+plotIPC_PSD_RateLimits(struct('Files', ...
+    string(fullfile(ts, {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', ...
+                         'TimeSeries_RL13.mat', 'TimeSeries_RL08_IPCTEF.mat'})), ...
+    'Labels', ["IPC, 4°/s", "IPC, 8°/s", "IPC, 13°/s", "IPC + TEF, 8°/s"], ...
+    'FigName', 'fig03_PSD_ratecomp_fadeIn'));
+```
+
+The re-simulations reproduce the costs of the optimization (e.g. -0.2053 at 13 deg/s, -0.2269 for
+IPC + TEF). The 8 and 13 deg/s PSDs lie on top of each other (almost identical gains).
+
+## PSD plots (`TimeSeries`)
+
+`TimeSeries/TimeSeries_RL04.mat`, `_RL08.mat` and `_RL13.mat` contain the baseline and the
+optimum of `RL04_refine` (K_P = 0.7455, K_I = 0.2168), `RL08_fmincon` (1.0959, 0.2504) and
+`RL13_fmincon_x08` (0.9669, 0.2209), simulated before the IPC/TEF fade-in with
+`'SaveTimeSeries', true` (18 m/s, class A, 660 s). They are copies of
+`Main/Post_processing/IPC_PI_TS_RL04_opt`, `IPC_PI_TS_RL08_x08` and `IPC_PI_TS_RL13_opt`
+(git-ignored, 70 MB each), reduced to 25 channels (wind, pitch, rotor and generator speed,
+blade root, yaw bearing and tower base moments, nacelle acceleration, power, torque) at the
+full sample time of 0.01 s. Each file holds its own baseline at the same rate limit.
+
+From `Main/plotFunktionen` (or with it on the path):
+
+```matlab
+P = plotIPC_PSD_RateLimits;   % figIPC_RateLimits/fig03_PSD_ratecomp.png/.eps
+```
+
+plots the PSDs (Welch, Hann window of 2^14 samples) of the baseline at 8 deg/s and the IPC at
+4, 8 and 13 deg/s for RootMyc1, TwrBsMyt, TwrBsMxt, YawBrMyp, NcIMUTAxs and BldPitch1 and prints
+the changes of the 1P, 2P and 3P peaks and of the standard deviations. Channels, files, window
+and frequency range are options (`help plotIPC_PSD_RateLimits`). It needs the Signal Processing
+Toolbox (`pwelch`), but no simulation. The help also shows how to store the time series of the
+fade-in gains and plot them.
+
+`plotIPC_RateLimitComparison` (time series and PSD figures of section 4.2) also reads these
+committed files: `plotIPC_RateLimitComparison([], "beforeFadeIn")` gives the figures with the
+fmincon gains before the fade-in (8 and 13 deg/s as above; 4 deg/s: the best feasible point of
+`RL04_fmincon`, K_P = 0.7438, K_I = 0.2163, `TimeSeries/TimeSeries_RL04_fmincon.mat`, because
+fmincon ended infeasible at the fminsearch point), `plotIPC_RateLimitComparison` (default `"fadeIn"`) those with the fmincon gains of
+`FadeIn/TimeSeries` (figure names with the suffix `_fadeIn`).
+
 ## Files
 
 Each run folder contains:

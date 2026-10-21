@@ -1,40 +1,81 @@
-function plotIPC_RateLimitComparison(figDir)
+function plotIPC_RateLimitComparison(figDir, dataSet)
 %PLOTIPC_RATELIMITCOMPARISON Time series and PSD plots of the optimized PI-IPC
-%   plotIPC_RateLimitComparison(figDir) reproduces the IPC figures of thesis
-%   section 4.2 with the gains of Results_IPC_PI_RateLimitOpt (best cost
-%   per pitch rate limit) from the stored time series (option
-%   'SaveTimeSeries' of optimizeIPC_PI_RateLimits):
-%   - 4 deg/s:  K_P = 0.7455, K_I = 0.2168 (fminsearch, RL04_refine),
-%               Post_processing/IPC_PI_TS_RL04_opt
-%   - 8 deg/s:  K_P = 1.0959, K_I = 0.2504 (fmincon, RL08_fmincon),
-%               Post_processing/IPC_PI_TS_RL08_x08
-%   - 13 deg/s: K_P = 0.9669, K_I = 0.2209 (fmincon, RL13_fmincon_x08),
-%               Post_processing/IPC_PI_TS_RL13_opt
+%   plotIPC_RateLimitComparison(figDir, dataSet) plots the optimized PI-IPC
+%   at the pitch rate limits 4, 8 and 13 deg/s from the time series stored
+%   in the repository (25 channels, option 'SaveTimeSeries' of
+%   optimizeIPC_PI_RateLimits), no simulation needed. dataSet:
+%   - "fadeIn" (default): fmincon gains of the re-optimization with the
+%     IPC/TEF fade-in, Results_IPC_PI_RateLimitOpt/FadeIn/TimeSeries
+%     (created with storeIPC_FadeInTimeSeries):
+%     4 deg/s:  K_P = 0.2533, K_I = 0.1033
+%     8 deg/s:  K_P = 1.2219, K_I = 0.3702
+%     13 deg/s: K_P = 1.2227, K_I = 0.3653
+%     The figure names get the suffix _fadeIn.
+%   - "beforeFadeIn": fmincon gains before the fade-in (model of commit
+%     6cb257c), Results_IPC_PI_RateLimitOpt/TimeSeries (copies of
+%     Post_processing/IPC_PI_TS_RL04_fmincon, _RL08_x08, _RL13_opt):
+%     4 deg/s:  K_P = 0.7438, K_I = 0.2163 (RL04_fmincon ended infeasible
+%               at its start point, the fminsearch result 0.7455/0.2168
+%               with tower +0.6 %; this is the best feasible point of its
+%               history, tower -1.5 %; TimeSeries_RL04_fmincon.mat)
+%     8 deg/s:  K_P = 1.0959, K_I = 0.2504 (fmincon, RL08_fmincon)
+%     13 deg/s: K_P = 0.9669, K_I = 0.2209 (fmincon, RL13_fmincon_x08)
 %   Baseline (CPC PI, IPC off) with the standard rate limit of 8 deg/s.
 %   Wind: optimization wind field 18 m/s, NTM class A (18mps.bts), 660 s,
 %   evaluation window from 66 s (as in the optimization).
 %
 %   Figures (figDir, default plotFunktionen/figIPC_RateLimits):
-%   - fig00a_Timeseries1/2/3: baseline (black) vs. IPC (blue; pitch: blue,
+%   - fig00a_Timeseries1/2/3[_fadeIn]: baseline (black) vs. IPC (blue; pitch: blue,
 %     red, yellow for the three blades) for 4, 8 and 13 deg/s
-%   - fig02_PSDroot_ratecomp: PSD of the blade 1 root out-of-plane moment
+%   - fig02_PSDroot_ratecomp[_fadeIn]: PSD of the blade 1 root out-of-plane moment
 %     (RootMyc1), baseline (black), IPC 4 (blue), 8 (red), 13 deg/s (yellow)
+%   - fig02_PSDroot_breaky_IPC[_fadeIn] (and for "fadeIn"
+%     fig02_PSDroot_breaky_RL08_IPCTEF_fadeIn): paper-style PSD figures of
+%     plotIPC_PSD_Paper
 %   The 1P/2P peak reductions and the standard deviations are printed.
 %
-%   Start from the Main folder.
+%   For "fadeIn" (current values for the thesis), the time series and the
+%   PSD are also stored in plotFunktionen/figIPCThesis as
+%   fig00a_Timeseries1/2/3 (4, 8, 13 deg/s) and fig02_PSDroot_breaky_ratecomp
+%   (.eps and .png), together with tab_stddev_unified_IPC.tex, the table
+%   tab:stddev_unified_IPC of the thesis (Section 4.2) with these values.
+%
+%   No simulation and no Post_processing folder needed.
 
+if nargin < 2 || isempty(dataSet)
+    dataSet = "fadeIn";
+end
 if nargin < 1 || isempty(figDir)
     figDir = fullfile(fileparts(mfilename('fullpath')), 'figIPC_RateLimits');
 end
 if ~isfolder(figDir), mkdir(figDir); end
+thesisDir = '';
+if string(dataSet) == "fadeIn"
+    thesisDir = fullfile(fileparts(mfilename('fullpath')), 'figIPCThesis');
+    if ~isfolder(thesisDir), mkdir(thesisDir); end
+end
 addpath(fullfile(fileparts(mfilename('fullpath')), 'breakyaxis'));
 
-ppDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Post_processing');
+resDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Results_IPC_PI_RateLimitOpt');
+switch string(dataSet)
+    case "fadeIn"
+        tsDir = fullfile(resDir, 'FadeIn', 'TimeSeries');
+        tsFiles = {'TimeSeries_RL04.mat', 'TimeSeries_RL08.mat', 'TimeSeries_RL13.mat'};
+        B = load(fullfile(resDir, 'FadeIn', 'best.mat'), 'best');
+        gains = {B.best.RL04_IPC_fmincon, B.best.RL08_IPC_fmincon, B.best.RL13_IPC_fmincon};
+        figSuffix = '_fadeIn';
+    case "beforeFadeIn"
+        tsDir = fullfile(resDir, 'TimeSeries');
+        tsFiles = {'TimeSeries_RL04_fmincon.mat', 'TimeSeries_RL08.mat', 'TimeSeries_RL13.mat'};
+        gains = {[0.7438 0.2163], [1.0959 0.2504], [0.9669 0.2209]};
+        figSuffix = '';
+    otherwise
+        error('Unknown dataSet "%s" ("fadeIn" or "beforeFadeIn").', dataSet);
+end
 cases = struct('rl', {4, 8, 13}, ...
-    'file', {fullfile(ppDir, 'IPC_PI_TS_RL04_opt', 'TimeSeries_RL04.mat'), ...
-             fullfile(ppDir, 'IPC_PI_TS_RL08_x08', 'TimeSeries_RL08.mat'), ...
-             fullfile(ppDir, 'IPC_PI_TS_RL13_opt', 'TimeSeries_RL13.mat')}, ...
-    'gains', {[0.7455 0.2168], [1.0959 0.2504], [0.9669 0.2209]});
+    'file', fullfile(tsDir, tsFiles), ...
+    'gains', gains);
+fprintf('Data set %s: %s\n', dataSet, tsDir);
 tStart = 66; % s, evaluation window as in the optimization
 
 % Baseline: standard rate limit 8 deg/s
@@ -48,29 +89,86 @@ end
 
 %% Time series
 for k = 1:numel(cases)
-    plotTimeSeries(base, ipc{k}, cases(k), tStart, k, figDir);
+    fn = {fullfile(figDir, sprintf('fig00a_Timeseries%d%s', k, figSuffix))};
+    if ~isempty(thesisDir), fn{end+1} = fullfile(thesisDir, sprintf('fig00a_Timeseries%d', k)); end %#ok<AGROW>
+    plotTimeSeries(base, ipc{k}, cases(k), tStart, k, fn);
 end
 
 %% PSD of the blade 1 root out-of-plane moment
-plotPSDcomparison(base, ipc, cases, tStart, figDir);
+fn = {fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix])};
+if ~isempty(thesisDir), fn{end+1} = fullfile(thesisDir, 'fig02_PSDroot_breaky_ratecomp'); end
+plotPSDcomparison(base, ipc, cases, tStart, fn);
+
+%% Paper-style PSD figures (plotIPC_PSD_Paper)
+if string(dataSet) == "fadeIn"
+    plotIPC_PSD_Paper(struct('FigDir', figDir, 'FigNames', ...
+        ["fig02_PSDroot_breaky_IPC", "fig02_PSDroot_breaky_RL08_IPCTEF"] + figSuffix));
+else
+    plotIPC_PSD_Paper(struct('Files', string({cases.file}), ...
+        'Labels', "IPC " + [cases.rl] + "°/s", 'Groups', {{1:numel(cases)}}, ...
+        'FigDir', figDir, 'FigNames', "fig02_PSDroot_breaky_IPC" + figSuffix));
+end
 
 %% Standard deviations (as Table tab:stddev_unified_IPC)
 sig = {'NcIMUTAxs', 'GenPwr', 'RotSpeed', 'PitchRate', 'RootMyc1'};
 lbl = {'Tower fore-aft acc. (m/s^2)', 'Generated power (kW)', 'Rotor speed (rpm)', ...
     'Blade pitch rate (deg/s)', 'Blade root OoP moment (kNm)'};
+lblTex = {'Tower fore-aft acc.\ (m/s$^2$) ', 'Generated power (kW)            ', ...
+    'Rotor speed (rpm)               ', 'Blade pitch rate (\textdegree/s)', 'Blade root OoP moment (kNm)     '};
+sd = zeros(numel(sig), 1 + numel(cases));                                  % baseline, IPC
+for s = 1:numel(sig)
+    sd(s,1) = stdSignal(base, sig{s}, tStart);
+    for k = 1:numel(cases)
+        sd(s,k+1) = stdSignal(ipc{k}, sig{s}, tStart);
+    end
+end
 fprintf('\nStandard deviation from %g s (ratio to the baseline at 8 deg/s):\n', tStart);
 fprintf('%-30s %12s', 'Signal', 'Baseline');
 fprintf(' %18s', sprintf('IPC %d deg/s', cases(1).rl), sprintf('IPC %d deg/s', cases(2).rl), sprintf('IPC %d deg/s', cases(3).rl));
 fprintf('\n');
 for s = 1:numel(sig)
-    b = stdSignal(base, sig{s}, tStart);
-    fprintf('%-30s %12.3f', lbl{s}, b);
-    for k = 1:numel(cases)
-        v = stdSignal(ipc{k}, sig{s}, tStart);
-        fprintf(' %10.3f (%4.2f)', v, v/b);
-    end
+    fprintf('%-30s %12.3f', lbl{s}, sd(s,1));
+    fprintf(' %10.3f (%4.2f)', [sd(s,2:end); sd(s,2:end)/sd(s,1)]);
     fprintf('\n');
 end
+
+% LaTeX table tab:stddev_unified_IPC (thesis Section 4.2)
+if ~isempty(thesisDir)
+    fnTab = fullfile(thesisDir, 'tab_stddev_unified_IPC.tex');
+    writeStdTable(fnTab, sd, lblTex, cases, tStart, string(dataSet));
+    fprintf('Table written to %s\n', fnTab);
+end
+end
+
+function writeStdTable(fnTab, sd, lblTex, cases, tStart, dataSet)
+% Table tab:stddev_unified_IPC: standard deviation (ratio to the baseline)
+iPR = 4; iM = 5;                                                           % pitch rate, moment
+fid = fopen(fnTab, 'w', 'n', 'UTF-8');
+c = onCleanup(@() fclose(fid));
+g = vertcat(cases.gains);
+fprintf(fid, '%% Created by plotIPC_RateLimitComparison("%s") on %s\n', dataSet, char(datetime('now', 'Format', 'yyyy-MM-dd')));
+fprintf(fid, '%% Standard deviations from %g s; IPC gains K_P/K_I:', tStart);
+fprintf(fid, ' %d deg/s %.4f/%.4f;', [[cases.rl]; g(:,1)'; g(:,2)']);
+fprintf(fid, '\n%% Blade pitch rate: finite differences of BldPitch1; moment: RootMyc1\n');
+fprintf(fid, '\\begin{table}[htbp]\n    \\centering\n');
+fprintf(fid, ['   \\caption[Standard deviation comparison: Baseline PI vs. IPC for turbulent wind with \n', ...
+    '   different pitch rate limits.]{Standard deviation of IPC blade pitch rate and blade root \n', ...
+    '       out-of-plane moment for turbulent wind with different pitch rate limits. Values in brackets show \n', ...
+    '       the ratio to the PI baseline. Tower fore-aft acceleration, generated power, and rotor \n', ...
+    '       speed standard deviations are identical to the PI baseline across all rate limits and are \n', ...
+    '       therefore omitted. PI baseline standard deviations differ only for the blade pitch rate (%.2f\\textdegree/s)\n', ...
+    '       and blade root out-of-plane moment (%.2f\\,kNm).}\n'], sd(iPR,1), sd(iM,1));
+fprintf(fid, '    \\label{tab:stddev_unified_IPC}\n    \\begin{tabular}{l rrr}\n        \\toprule\n');
+fprintf(fid, '        & \\multicolumn{3}{c}{ IPC rate limit (\\textdegree/s) (ratio to CPC rate limit (\\textdegree/s))} \\\\\n');
+fprintf(fid, '        \\cmidrule(lr){2-4}\n');
+fprintf(fid, '        Signal & low: %d\\textdegree/s & standard: %d\\textdegree/s & high: %d\\textdegree/s \\\\\n', cases.rl);
+fprintf(fid, '        \\midrule\n');
+for s = 1:size(sd, 1)
+    fprintf(fid, '        %s', lblTex{s});
+    fprintf(fid, ' & %.2f (%.2f)', [sd(s,2:end); sd(s,2:end)/sd(s,1)]);
+    fprintf(fid, ' \\\\\n');
+end
+fprintf(fid, '        \\bottomrule\n    \\end{tabular}\n\\end{table}\n');
 end
 
 function T = toTable(TS)
@@ -88,13 +186,20 @@ else
 end
 end
 
-function plotTimeSeries(base, ipc, c, tStart, figNo, figDir)
-% Wind, generator torque, pitch, rotor speed, tower fore-aft acceleration,
-% generator power and blade root out-of-plane moments
-yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'RotSpd (rpm)', 'TwrAcc_{FA} (m/s^2)', ...
-    'GenPwr (MW)', 'M_{yb,1} (MNm)'};
+function plotTimeSeries(base, ipc, c, tStart, figNo, fnOut)
+% Wind, generator torque, pitch, pitch rate, rotor speed, tower fore-aft
+% acceleration, generator power and blade root out-of-plane moments
+yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'Pitch rate (°/s)', 'RotSpd (rpm)', ...
+    'TwrAcc_{FA} (m/s^2)', 'GenPwr (MW)', 'Bl1 MOoP (MNm)'};
+
+
 ib = base.Time >= tStart;
 ii = ipc.Time >= tStart;
+
+if std(ipc.GenTq(ii)) < 10 
+yAx(2)=[];
+end
+
 tb = base.Time(ib);
 ti = ipc.Time(ii);
 figure(100 + figNo); clf;
@@ -106,38 +211,72 @@ for k = 1:numel(yAx)
     ylabel(yAx{k});
 end
 cPitch = [0 0.4470 0.7410; 0.8500 0.3250 0.0980; 0.9290 0.6940 0.1250]; % blue, red, yellow
-plot(ax(1), tb, base.Wind1VelX(ib), 'k');
-plot(ax(2), tb, base.GenTq(ib), 'k', 'DisplayName', 'Baseline (8°/s)');
-plot(ax(2), ti, ipc.GenTq(ii), 'Color', cPitch(1,:), 'DisplayName', sprintf('IPC (%d°/s)', c.rl));
-plot(ax(3), tb, base.BldPitch1(ib), 'k', 'LineWidth', 1.2);
-for b = 1:3
-    plot(ax(3), ti, ipc.(sprintf('BldPitch%d', b))(ii), 'Color', cPitch(b,:));
+cCPC = [0.4940 0.1840 0.5560];                                             % purple
+% CPC (baseline) first, i.e. below the IPC line; in the pitch plot last, on top
+idxAx = 1;
+plot(ax(idxAx), tb, base.Wind1VelX(ib), 'k');
+idxAx = 1+idxAx;
+
+if 10 < std(ipc.GenTq(ii))
+plot(ax(idxAx), tb, base.GenTq(ib), 'Color', cCPC);
+plot(ax(idxAx), ti, ipc.GenTq(ii), 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
 end
-plot(ax(4), tb, base.RotSpeed(ib), 'k');
-plot(ax(4), ti, ipc.RotSpeed(ii), 'Color', cPitch(1,:));
-plot(ax(5), tb, base.NcIMUTAxs(ib), 'k');
-plot(ax(5), ti, ipc.NcIMUTAxs(ii), 'Color', cPitch(1,:));
-plot(ax(6), tb, base.GenPwr(ib)/1000, 'k');
-plot(ax(6), ti, ipc.GenPwr(ii)/1000, 'Color', cPitch(1,:));
-plot(ax(7), tb, base.RootMyc1(ib)/1000, 'k');
-plot(ax(7), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
-title(ax(1), sprintf('Baseline (black, 8°/s) vs. IPC PI (K_P = %.4f, K_I = %.4f), pitch rate limit %d°/s', ...
-    c.gains(1), c.gains(2), c.rl));
-legend(ax(2), 'Location', 'northeast');
+
+for b = 1:3
+    plot(ax(idxAx), ti, ipc.(sprintf('BldPitch%d', b))(ii), 'Color', cPitch(b,:));
+end
+plot(ax(idxAx), tb, base.BldPitch1(ib), 'Color', cCPC, 'LineWidth', 1.2);
+idxAx = 1+idxAx;
+
+% Pitch rate (finite differences), CPC last as for the pitch; dashed: rate limits 4 and 8 deg/s
+for b = 1:3
+    plot(ax(idxAx), ti(2:end), diff(ipc.(sprintf('BldPitch%d', b))(ii))./diff(ti), 'Color', cPitch(b,:));
+end
+plot(ax(idxAx), tb(2:end), diff(base.BldPitch1(ib))./diff(tb), 'Color', cCPC, 'LineWidth', 1.2);
+yline(ax(idxAx), [-8 -4 4 8], '--k');
+axRate = ax(idxAx);
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.RotSpeed(ib), 'Color', cCPC);
+plot(ax(idxAx), ti, ipc.RotSpeed(ii), 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.NcIMUTAxs(ib), 'Color', cCPC);
+plot(ax(idxAx), ti, ipc.NcIMUTAxs(ii), 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.GenPwr(ib)/1000, 'Color', cCPC);
+plot(ax(idxAx), ti, ipc.GenPwr(ii)/1000, 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.RootMyc1(ib)/1000, 'Color', cCPC);
+plot(ax(idxAx), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
+% Legend as coloured title (no legends in the plots)
+rgb = @(cc) ['\color[rgb]{', sprintf('%g,%g,%g', cc), '}'];
+title(ax(1), {[rgb(cCPC), 'CPC (8°/s)', '\color{black} vs. ', ...
+        sprintf('IPC PI (K_P = %.4f, K_I = %.4f), %d°/s', c.gains(1), c.gains(2), c.rl)], ...
+    ['\color{black}Pitch IPC: ', rgb(cPitch(1,:)), 'blade 1, ', rgb(cPitch(2,:)), 'blade 2, ', ...
+        rgb(cPitch(3,:)), 'blade 3']}, 'FontWeight', 'bold');
 linkaxes(ax, 'x'); axis(ax, 'tight');
+% Pitch rate always +-13 deg/s (largest rate limit), ticks at the rate limits
+ylim(axRate, [-13 13]);
+yticks(axRate, [-13 -8 -4 0 4 8 13]);
+
+if 10 < std(ipc.GenTq(ii)) 
 % Torque: minimum - 10 % to maximum + 10 % (constant above rated)
 tq = [base.GenTq(ib); ipc.GenTq(ii)];
 ylim(ax(2), [0.9*min(tq), 1.1*max(tq)]);
-xlabel(ax(end), 'Time (s)');
-posDefault = get(0, 'DefaultFigurePosition');
-set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3)*1.4, posDefault(4)*2.3]);
-set(findall(gcf, '-property', 'FontSize'), 'FontSize', 10);
-fn = fullfile(figDir, sprintf('fig00a_Timeseries%d', figNo));
-print(gcf, fn, '-dpng', '-r150');
-print(gcf, fn, '-depsc');
 end
 
-function plotPSDcomparison(base, ipc, cases, tStart, figDir)
+xlabel(ax(end), 'Time (s)');
+posDefault = get(0, 'DefaultFigurePosition');
+set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
+printFig(gcf, fnOut);
+end
+
+function plotPSDcomparison(base, ipc, cases, tStart, fnOut)
 % PSD (Welch, Hann window of 2^14 samples, 50 % overlap) of RootMyc1
 fsHz = 1/mean(diff(base.Time));
 nWin = 2^14;
@@ -162,42 +301,114 @@ for k = 1:numel(ipc)
 end
 
 cl = {'k', [0 0.4470 0.7410], [0.8500 0.3250 0.0980], [0.9290 0.6940 0.1250]};
+lsIPC = {'-.', '-', ':'};                                                  % IPC 4 (blue), 8 (red), 13 deg/s (yellow)
+lwIPC = [1, 1, 1.3];
 figure(200); clf;
 nfpos = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [nfpos(1:3), nfpos(4)*0.9], 'Name', 'PSD blade root out-of-plane moment', 'NumberTitle', 'off');
-plot(f(iF), Pb(iF), 'Color', cl{1}, 'LineWidth', 1, 'DisplayName', 'Baseline, 8°/s'); hold on;
+plot(f(iF), Pb(iF), 'Color', cl{1}, 'LineWidth', 1, 'DisplayName', 'Baseline'); hold on;
 for k = 1:numel(ipc)
-    plot(f(iF), P{k}(iF), 'Color', cl{k+1}, 'LineWidth', 1, ...
+    plot(f(iF), P{k}(iF), lsIPC{k}, 'Color', cl{k+1}, 'LineWidth', lwIPC(k), ...
         'DisplayName', sprintf('IPC, %d°/s', cases(k).rl));
 end
 grid on; axis tight;
+% Dotted lines at 1P and 2P (labelled in the upper pane below)
 xline(f1P, ':', 'HandleVisibility', 'off');
 xline(2*f1P, ':', 'HandleVisibility', 'off');
-xlabel(sprintf('Frequency (Hz), dotted: 1P = %.3f Hz and 2P', f1P));
-ylabel('PSD M_{yb,1} (kNm^2/Hz)');
+xlabel('Frequency (Hz)');
+ylabel('PSD Bl1 MOoP (kNm^2/Hz)');
 % Legend as coloured title (the split axis below replaces the axes)
 rgb = @(c) ['\color[rgb]{', sprintf('%g,%g,%g', c), '}'];
 titleStr = ['\color{black}Baseline 8°/s;  ', rgb(cl{2}), 'IPC 4°/s;  ', rgb(cl{3}), 'IPC 8°/s;  ', ...
     rgb(cl{4}), 'IPC 13°/s'];
 % Split y axis between the IPC curves and the baseline 1P peak
-yLow = 1.3*max(cellfun(@(p) max(p(f > 0.05 & iF)), P));
-yHigh = 0.8*pb(1);
+yLow = 5e7;                                                                % lower pane up to 5*10^7 (as plotIPC_PSD_Paper)
 yl = ylim;
 ylim([0, 1.02*yl(2)]);
+% Upper pane from 0.85 times the baseline 1P peak (as plotIPC_PSD_Paper)
+yHigh = 0.85*pb(1);
+% Axes slightly to the right and y label further left, so that the label
+% does not cover the tick labels of the lower pane
+pos = get(gca, 'Position');
+set(gca, 'Position', [pos(1) + 0.021, pos(2), pos(3) - 0.021, pos(4)]);
+hYl = get(gca, 'YLabel');
+set(hYl, 'Units', 'normalized');
+set(hYl, 'Position', [hYl.Position(1) + 0.7*(-0.12 - hYl.Position(1)), 0.5, 0]);
 if yHigh > 1.5*yLow
-    br = breakyaxis([yLow, yHigh]);
-    title(br.highAxes, titleStr, 'FontWeight', 'normal');
+    [~, br] = evalc('breakyaxis([yLow, yHigh])');                         % breakyaxis prints an axes
+    title(br.highAxes, titleStr, 'FontWeight', 'bold');
+    axPanes = [br.lowAxes, br.highAxes];
+    % Lower pane: ticks every 10^7 up to the split, labelled as x10^7
+    br.lowAxes.YTick = 0:1e7:yLow;
+    br.lowAxes.YAxis.Exponent = 7;
 else
-    title(titleStr, 'FontWeight', 'normal');
+    title(titleStr, 'FontWeight', 'bold');
+    axPanes = gca;
+end
+hPk = gobjects(0);                                                         % peak value texts
+% 1P and 2P labels once, left of the dotted lines, slightly above the
+% bottom of the upper pane
+ylH = get(axPanes(end), 'YLim');
+for n = 1:2
+    text(axPanes(end), n*f1P - 0.012, ylH(1) + 0.1*diff(ylH), sprintf('%dP', n), ...
+        'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom');
+end
+% Baseline 1P peak as text arrow, the other 1P and 2P peaks as circles in
+% the line colours with their values listed in the same colours in the
+% lower pane next to the 1P and 2P lines (as plotIPC_PSD_Paper)
+Pall = [{Pb}, P];
+axTxt = axPanes(1);
+ylT = get(axTxt, 'YLim');
+for n = 1:2
+    iN = find(f >= 0.85*n*f1P & f <= 1.15*n*f1P);
+    hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
+        'Color', [0.3 0.3 0.3], 'FontSize', 10); %#ok<AGROW>
+    i = 0;
+    for r = 1:numel(Pall)
+        [pv, i1] = max(Pall{r}(iN));
+        if n == 1 && r == 1
+            hPk(end+1) = addArrow(axPanes, f(iN(i1)), pv, sprintf('%2.2e', pv), cl{r}); %#ok<AGROW>
+            continue
+        end
+        i = i + 1;
+        plot(axTxt, f(iN(i1)), pv, 'o', 'Color', cl{r}, 'MarkerSize', 5, 'LineWidth', 1);
+        hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - (0.08 + 0.11*i)*diff(ylT), sprintf('%2.2e', pv), ...
+            'Color', cl{r}, 'FontSize', 10); %#ok<AGROW>
+    end
 end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
-fn = fullfile(figDir, 'fig02_PSDroot_ratecomp');
-print(gcf, fn, '-dpng', '-r150');
-print(gcf, fn, '-depsc');
+set(hPk, 'FontSize', 12);
+printFig(gcf, fnOut);
+end
+
+function printFig(h, fnOut)
+% Save the figure as .png and .eps under all names in fnOut
+for k = 1:numel(fnOut)
+    print(h, fnOut{k}, '-dpng', '-r150');
+    print(h, fnOut{k}, '-depsc');
+end
 end
 
 function [Pxx, f] = psdOf(T, tStart, fsHz, nWin)
 x = T.RootMyc1(T.Time >= tStart);
 x = x - mean(x);
 [Pxx, f] = pwelch(x, hann(nWin), nWin/2, nWin, fsHz);
+end
+
+function h = addArrow(axPanes, x, y, str, c)
+% Text arrow to the data point (x, y) in the pane that contains y, text to
+% the lower right if there is no room above (as plotIPC_PSD_Paper)
+ax = axPanes(end);
+for a = axPanes
+    yl = get(a, 'YLim');
+    if y >= yl(1) && y <= yl(2), ax = a; break; end
+end
+pos = get(ax, 'Position');
+xl = get(ax, 'XLim'); yl = get(ax, 'YLim');
+xn = pos(1) + (x - xl(1))/diff(xl)*pos(3);
+yn = pos(2) + (y - yl(1))/diff(yl)*pos(4);
+dx = 0.05; dy = 0.07;
+if yn + dy > 0.88, dy = -0.07; dx = 0.06; end
+h = annotation(get(ax, 'Parent'), 'textarrow', [xn + dx, xn], [yn + dy, yn], ...
+    'String', str, 'Color', c);
 end
