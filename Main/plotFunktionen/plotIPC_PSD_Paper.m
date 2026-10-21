@@ -29,6 +29,12 @@ function plotIPC_PSD_Paper(opts)
 %     FigNames     file names, one per group (default
 %                  fig02_PSDroot_breaky_<file suffixes>)
 %     mP           figure height relative to the default (default 0.65)
+%     mW           figure width relative to the default (default 1)
+%     BaselineLabel title of the baseline (default "Baseline <rate>°/s")
+%     FontSizeNum  font size of the tick labels and peak values (default 10)
+%     YSplit       y values [low, high] of the axis split, one per group
+%                  (cell array); [] or missing: automatic, only if the
+%                  baseline 1P peak is 1.5 times above the other values
 %     PSDFile      precomputed PSDs (e.g. PSD_RL08_AALC.mat of storeAALC_PSD)
 %                  instead of Files: the runs are P.Runs, the labels
 %                  default to P.Labels, the baseline is P.Baseline (fast,
@@ -66,6 +72,10 @@ def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigNames     = [];
 def.mP           = 0.65;
+def.mW           = 1;
+def.BaselineLabel = "";
+def.FontSizeNum  = 10;
+def.YSplit       = {};
 def.PSDFile      = "";
 def.StyleIdx     = [];
 Q = [];
@@ -152,7 +162,7 @@ for g = 1:numel(groups)
     % Figure as fig02_PSDroot_breaky
     nf = figure(400 + g); clf;
     nfpos = get(0, 'defaultFigurePosition');
-    nf.Position = [nfpos(1:3), nfpos(4)*opts.mP];
+    nf.Position = [nfpos(1:2), nfpos(3)*opts.mW, nfpos(4)*opts.mP];
     set(nf, 'Name', sprintf('PSD %s: %s', opts.Channel, join(labels(idx), ', ')), 'NumberTitle', 'off');
     plot(f, Y{1}, 'k-', 'LineWidth', lw); hold on;
     for j = 1:nC
@@ -164,6 +174,7 @@ for g = 1:numel(groups)
     yl = ylim;
     ylim([yl(1), yl(2) + 0.01*(yl(2) - yl(1))]);
     titleStr = sprintf('Baseline %d°/s', rlB);
+    if opts.BaselineLabel ~= "", titleStr = char(opts.BaselineLabel); end
     for j = 1:nC
         titleStr = [titleStr, '; ', clTitle{st(j)}, char(labels(idx(j)))]; %#ok<AGROW>
     end
@@ -172,14 +183,29 @@ for g = 1:numel(groups)
     i1P = f >= 0.85*P.f1P & f <= 1.15*P.f1P;
     yLow = 1.15*max([vertcat(Y{2:end}); Y{1}(~i1P)]);
     yHigh = 0.85*pk(1,1);
-    if yHigh > 1.5*yLow
+    fsN = opts.FontSizeNum;
+    doSplit = yHigh > 1.5*yLow;
+    if numel(opts.YSplit) >= g && ~isempty(opts.YSplit{g})
+        yLow = opts.YSplit{g}(1); yHigh = opts.YSplit{g}(2);
+        doSplit = true;
+    end
+    if doSplit
         [~, br] = evalc('breakyaxis([yLow, yHigh])');                     % breakyaxis prints an axes
         br.highAxes.Title.String = titleStr;
         br.highAxes.Title.FontSize = fs;
-        br.highAxes.FontSize = fs - 2;
-        br.lowAxes.FontSize = fs - 2;
+        br.highAxes.FontSize = fsN;
+        br.lowAxes.FontSize = fsN;
+        if numel(opts.YSplit) >= g && ~isempty(opts.YSplit{g})
+            set([br.lowAxes, br.highAxes], 'YTickMode', 'auto');           % ticks of the given split
+            t = get(br.highAxes, 'YTick');
+            dt = diff(t(1:2));
+            if nnz(t > yHigh) < 2, dt = dt/2; end                          % at least two ticks above the split
+            ylH = get(br.highAxes, 'YLim');
+            set(br.highAxes, 'YTick', (floor(yHigh/dt) + 1)*dt:dt:ylH(2));  % none on the split line
+        end
         axPanes = [br.lowAxes, br.highAxes];
     else
+        set(gca, 'FontSize', fsN);
         title(titleStr, 'FontSize', fs);
         axPanes = gca;
     end
@@ -189,26 +215,28 @@ for g = 1:numel(groups)
         % Peak values as text arrows (as in the paper)
         for r = 1:2
             for n = 1:2
-                addArrow(axPanes, fpk(r,n), pk(r,n), sprintf('%2.2e', pk(r,n)), clAll{r}, fs, r - 1);
+                addArrow(axPanes, fpk(r,n), pk(r,n), sprintf('%2.2e', pk(r,n)), clAll{r}, fsN, r - 1);
             end
         end
     else
         % Several controllers: baseline 1P peak as text arrow, the other
         % peaks marked with circles and their values listed next to 1P and 2P
-        addArrow(axPanes, fpk(1,1), pk(1,1), sprintf('%2.2e', pk(1,1)), clAll{1}, fs, 0);
+        addArrow(axPanes, fpk(1,1), pk(1,1), sprintf('%2.2e', pk(1,1)), clAll{1}, fsN, 0);
         axLow = axPanes(1);
         ylL = get(axLow, 'YLim');
         dyL = 0.22*isscalar(axPanes);                                      % no split: below the baseline arrow
         for n = 1:2
             rows = (1 + (n == 1)):(nC + 1);                                % 1P: baseline peak is in the high pane
+            [~, iS] = sort(pk(rows, n), 'descend');                        % largest peak on top
+            rows = rows(iS);
             for i = 1:numel(rows)
                 r = rows(i);
                 plot(axLow, fpk(r,n), pk(r,n), 'o', 'Color', clAll{r}, 'MarkerSize', 5, 'LineWidth', lw);
-                text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.19 + 0.11*(i - 1))*diff(ylL), ...
-                    sprintf('%2.2e', pk(r,n)), 'Color', clAll{r}, 'FontSize', fs - 2);
+                text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.19*fsN/10 + 0.11*fsN/10*(i - 1))*diff(ylL), ...
+                    sprintf('%2.2e', pk(r,n)), 'Color', clAll{r}, 'FontSize', fsN);
             end
             text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.08)*diff(ylL), ...
-                sprintf('%dP peaks:', n), 'Color', [0.3 0.3 0.3], 'FontSize', fs - 2);
+                sprintf('%dP peaks:', n), 'Color', [0.3 0.3 0.3], 'FontSize', fsN);
         end
     end
 
@@ -218,7 +246,7 @@ for g = 1:numel(groups)
 end
 end
 
-function addArrow(axPanes, x, y, str, c, fs, j)
+function addArrow(axPanes, x, y, str, c, fsN, j)
 % Text arrow to the data point (x, y) in the pane that contains y; j = 0
 % baseline, j = 1, 2, ... controllers (text further up and right)
 ax = axPanes(end);
@@ -234,5 +262,5 @@ dx = 0.05 + 0.03*j;
 dy = 0.07 + 0.09*j;
 if yn + dy > 0.88, dy = -0.07; dx = 0.06; end                            % below the peak
 annotation(get(ax, 'Parent'), 'textarrow', [xn + dx, xn], [yn + dy, yn], ...
-    'String', str, 'Color', c, 'FontSize', fs - 2);
+    'String', str, 'Color', c, 'FontSize', fsN);
 end
