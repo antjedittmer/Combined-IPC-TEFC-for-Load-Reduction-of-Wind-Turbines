@@ -116,10 +116,10 @@ end
 end
 
 function plotTimeSeries(base, ipc, c, tStart, figNo, figDir, figSuffix)
-% Wind, generator torque, pitch, rotor speed, tower fore-aft acceleration,
-% generator power and blade root out-of-plane moments
-yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'RotSpd (rpm)', 'TwrAcc_{FA} (m/s^2)', ...
-    'GenPwr (MW)', 'M_{yb,1} (MNm)'};
+% Wind, generator torque, pitch, pitch rate, rotor speed, tower fore-aft
+% acceleration, generator power and blade root out-of-plane moments
+yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'Pitch rate (°/s)', 'RotSpd (rpm)', ...
+    'TwrAcc_{FA} (m/s^2)', 'GenPwr (MW)', 'M_{yb,1} (MNm)'};
 
 
 ib = base.Time >= tStart;
@@ -158,6 +158,15 @@ end
 plot(ax(idxAx), tb, base.BldPitch1(ib), 'Color', cCPC, 'LineWidth', 1.2);
 idxAx = 1+idxAx;
 
+% Pitch rate (finite differences), CPC last as for the pitch; dashed: rate limits 4 and 8 deg/s
+for b = 1:3
+    plot(ax(idxAx), ti(2:end), diff(ipc.(sprintf('BldPitch%d', b))(ii))./diff(ti), 'Color', cPitch(b,:));
+end
+plot(ax(idxAx), tb(2:end), diff(base.BldPitch1(ib))./diff(tb), 'Color', cCPC, 'LineWidth', 1.2);
+yline(ax(idxAx), [-8 -4 4 8], '--k');
+axRate = ax(idxAx);
+idxAx = 1+idxAx;
+
 plot(ax(idxAx), tb, base.RotSpeed(ib), 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.RotSpeed(ii), 'Color', cPitch(1,:));
 idxAx = 1+idxAx;
@@ -174,11 +183,14 @@ plot(ax(idxAx), tb, base.RootMyc1(ib)/1000, 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
 % Legend as coloured title (no legends in the plots)
 rgb = @(cc) ['\color[rgb]{', sprintf('%g,%g,%g', cc), '}'];
-title(ax(1), {[rgb(cCPC), 'CPC (8°/s)', '\color{black} vs. ', rgb(cPitch(1,:)), ...
+title(ax(1), {[rgb(cCPC), 'CPC (8°/s)', '\color{black} vs. ', ...
         sprintf('IPC PI (K_P = %.4f, K_I = %.4f), %d°/s', c.gains(1), c.gains(2), c.rl)], ...
     ['\color{black}Pitch IPC: ', rgb(cPitch(1,:)), 'blade 1, ', rgb(cPitch(2,:)), 'blade 2, ', ...
-        rgb(cPitch(3,:)), 'blade 3']}, 'FontWeight', 'normal');
+        rgb(cPitch(3,:)), 'blade 3']}, 'FontWeight', 'bold');
 linkaxes(ax, 'x'); axis(ax, 'tight');
+% Pitch rate always +-13 deg/s (largest rate limit), ticks at the rate limits
+ylim(axRate, [-13 13]);
+yticks(axRate, [-13 -8 -4 0 4 8 13]);
 
 if 10 < std(ipc.GenTq(ii)) 
 % Torque: minimum - 10 % to maximum + 10 % (constant above rated)
@@ -238,15 +250,38 @@ rgb = @(c) ['\color[rgb]{', sprintf('%g,%g,%g', c), '}'];
 titleStr = ['\color{black}Baseline 8°/s;  ', rgb(cl{2}), 'IPC 4°/s;  ', rgb(cl{3}), 'IPC 8°/s;  ', ...
     rgb(cl{4}), 'IPC 13°/s'];
 % Split y axis between the IPC curves and the baseline 1P peak
-yLow = 1.3*max(cellfun(@(p) max(p(f > 0.05 & iF)), P));
+yLow = 1e7;                                                                % lower pane up to 10^7
 yHigh = 0.8*pb(1);
 yl = ylim;
 ylim([0, 1.02*yl(2)]);
 if yHigh > 1.5*yLow
-    br = breakyaxis([yLow, yHigh]);
+    [~, br] = evalc('breakyaxis([yLow, yHigh])');                         % breakyaxis prints an axes
     title(br.highAxes, titleStr, 'FontWeight', 'normal');
+    axPanes = [br.lowAxes, br.highAxes];
 else
     title(titleStr, 'FontWeight', 'normal');
+    axPanes = gca;
+end
+% 1P and 2P peaks: circles in the line colours, values listed in the same
+% colours in the upper pane next to the 1P and 2P lines
+Pall = [{Pb}, P];
+axTxt = axPanes(end);
+ylT = get(axTxt, 'YLim');
+for n = 1:2
+    iN = find(f >= 0.85*n*f1P & f <= 1.15*n*f1P);
+    text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
+        'Color', [0.3 0.3 0.3], 'FontSize', 10);
+    for r = 1:numel(Pall)
+        [pv, i1] = max(Pall{r}(iN));
+        axP = axPanes(end);
+        for a = axPanes
+            yl = get(a, 'YLim');
+            if pv >= yl(1) && pv <= yl(2), axP = a; break; end
+        end
+        plot(axP, f(iN(i1)), pv, 'o', 'Color', cl{r}, 'MarkerSize', 5, 'LineWidth', 1);
+        text(axTxt, n*f1P + 0.015, ylT(2) - (0.08 + 0.1*r)*diff(ylT), sprintf('%2.2e', pv), ...
+            'Color', cl{r}, 'FontSize', 10);
+    end
 end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
 fn = fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix]);
