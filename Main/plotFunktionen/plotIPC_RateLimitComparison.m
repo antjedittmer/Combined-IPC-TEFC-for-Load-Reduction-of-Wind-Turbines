@@ -119,7 +119,7 @@ function plotTimeSeries(base, ipc, c, tStart, figNo, figDir, figSuffix)
 % Wind, generator torque, pitch, pitch rate, rotor speed, tower fore-aft
 % acceleration, generator power and blade root out-of-plane moments
 yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'Pitch rate (°/s)', 'RotSpd (rpm)', ...
-    'TwrAcc_{FA} (m/s^2)', 'GenPwr (MW)', 'M_{yb,1} (MNm)'};
+    'TwrAcc_{FA} (m/s^2)', 'GenPwr (MW)', 'M_{yc,1} (MNm)'};
 
 
 ib = base.Time >= tStart;
@@ -232,64 +232,81 @@ for k = 1:numel(ipc)
 end
 
 cl = {'k', [0 0.4470 0.7410], [0.8500 0.3250 0.0980], [0.9290 0.6940 0.1250]};
+lsIPC = {'-.', '-', ':'};                                                  % IPC 4 (blue), 8 (red), 13 deg/s (yellow)
+lwIPC = [1, 1, 1.3];
 figure(200); clf;
 nfpos = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [nfpos(1:3), nfpos(4)*0.9], 'Name', 'PSD blade root out-of-plane moment', 'NumberTitle', 'off');
 plot(f(iF), Pb(iF), 'Color', cl{1}, 'LineWidth', 1, 'DisplayName', 'Baseline'); hold on;
 for k = 1:numel(ipc)
-    plot(f(iF), P{k}(iF), 'Color', cl{k+1}, 'LineWidth', 1, ...
+    plot(f(iF), P{k}(iF), lsIPC{k}, 'Color', cl{k+1}, 'LineWidth', lwIPC(k), ...
         'DisplayName', sprintf('IPC, %d°/s', cases(k).rl));
 end
 grid on; axis tight;
-xline(f1P, ':', 'HandleVisibility', 'off');
-xline(2*f1P, ':', 'HandleVisibility', 'off');
-xlabel(sprintf('Frequency (Hz), dotted: 1P = %.1f Hz and 2P', f1P));
-ylabel('PSD M_{yb,1} (kNm^2/Hz)');
+% Dotted lines at 1P and 2P, labelled on the line
+xline(f1P, ':', '1P', 'LabelOrientation', 'horizontal', ...
+    'LabelVerticalAlignment', 'bottom', 'LabelHorizontalAlignment', 'left', 'HandleVisibility', 'off');
+xline(2*f1P, ':', '2P', 'LabelOrientation', 'horizontal', ...
+    'LabelVerticalAlignment', 'bottom', 'LabelHorizontalAlignment', 'left', 'HandleVisibility', 'off');
+xlabel('Frequency (Hz)');
+ylabel('PSD M_{yc,1} (kNm^2/Hz)');
 % Legend as coloured title (the split axis below replaces the axes)
 rgb = @(c) ['\color[rgb]{', sprintf('%g,%g,%g', c), '}'];
 titleStr = ['\color{black}Baseline 8°/s;  ', rgb(cl{2}), 'IPC 4°/s;  ', rgb(cl{3}), 'IPC 8°/s;  ', ...
     rgb(cl{4}), 'IPC 13°/s'];
 % Split y axis between the IPC curves and the baseline 1P peak
-yLow = 1e7;                                                                % lower pane up to 10^7
+yLow = 5e7;                                                                % lower pane up to 5*10^7 (as plotIPC_PSD_Paper)
 yl = ylim;
 ylim([0, 1.02*yl(2)]);
-% Upper pane with 2/3 of the y range of the lower one, so that the upper
-% pane covers about 2/5 and the lower one 3/5 of the plot (below the
-% baseline 1P peak, so that it stays visible)
-yHigh = min(1.02*yl(2) - 2/3*yLow, 0.98*pb(1));
+% Upper pane from 0.85 times the baseline 1P peak (as plotIPC_PSD_Paper)
+yHigh = 0.85*pb(1);
+% Axes slightly to the right and y label further left, so that the label
+% does not cover the tick labels of the lower pane
+pos = get(gca, 'Position');
+set(gca, 'Position', [pos(1) + 0.021, pos(2), pos(3) - 0.021, pos(4)]);
+hYl = get(gca, 'YLabel');
+set(hYl, 'Units', 'normalized');
+set(hYl, 'Position', [hYl.Position(1) + 0.7*(-0.12 - hYl.Position(1)), 0.5, 0]);
 if yHigh > 1.5*yLow
     [~, br] = evalc('breakyaxis([yLow, yHigh])');                         % breakyaxis prints an axes
-    title(br.highAxes, titleStr, 'FontWeight', 'normal');
+    title(br.highAxes, titleStr, 'FontWeight', 'bold');
     axPanes = [br.lowAxes, br.highAxes];
-    % Lower pane: ticks up to the split at 10^7, labelled as x10^7
-    br.lowAxes.YTick = (0:0.25:1)*yLow;
-    br.lowAxes.YAxis.Exponent = round(log10(yLow));
+    % Lower pane: ticks every 10^7 up to the split, labelled as x10^7
+    br.lowAxes.YTick = 0:1e7:yLow;
+    br.lowAxes.YAxis.Exponent = 7;
+    % 1P and 2P labels only in the upper pane (breakyaxis copies the axes)
+    axOther = setdiff(findall(gcf, 'Type', 'axes'), br.highAxes);
+    set(findall(axOther, 'Type', 'ConstantLine'), 'Label', '');
 else
-    title(titleStr, 'FontWeight', 'normal');
+    title(titleStr, 'FontWeight', 'bold');
     axPanes = gca;
 end
-% 1P and 2P peaks: circles in the line colours, values listed in the same
-% colours in the upper pane next to the 1P and 2P lines
+% Baseline 1P peak as text arrow, the other 1P and 2P peaks as circles in
+% the line colours with their values listed in the same colours in the
+% lower pane next to the 1P and 2P lines (as plotIPC_PSD_Paper)
 Pall = [{Pb}, P];
-axTxt = axPanes(end);
+hPk = gobjects(0);                                                         % peak value texts
+axTxt = axPanes(1);
 ylT = get(axTxt, 'YLim');
 for n = 1:2
     iN = find(f >= 0.85*n*f1P & f <= 1.15*n*f1P);
-    text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
-        'Color', [0.3 0.3 0.3], 'FontSize', 10);
+    hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
+        'Color', [0.3 0.3 0.3], 'FontSize', 10); %#ok<AGROW>
+    i = 0;
     for r = 1:numel(Pall)
         [pv, i1] = max(Pall{r}(iN));
-        axP = axPanes(end);
-        for a = axPanes
-            yl = get(a, 'YLim');
-            if pv >= yl(1) && pv <= yl(2), axP = a; break; end
+        if n == 1 && r == 1
+            hPk(end+1) = addArrow(axPanes, f(iN(i1)), pv, sprintf('%2.2e', pv), cl{r}); %#ok<AGROW>
+            continue
         end
-        plot(axP, f(iN(i1)), pv, 'o', 'Color', cl{r}, 'MarkerSize', 5, 'LineWidth', 1);
-        text(axTxt, n*f1P + 0.015, ylT(2) - (0.08 + 0.1*r)*diff(ylT), sprintf('%2.2e', pv), ...
-            'Color', cl{r}, 'FontSize', 10);
+        i = i + 1;
+        plot(axTxt, f(iN(i1)), pv, 'o', 'Color', cl{r}, 'MarkerSize', 5, 'LineWidth', 1);
+        hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - (0.08 + 0.11*i)*diff(ylT), sprintf('%2.2e', pv), ...
+            'Color', cl{r}, 'FontSize', 10); %#ok<AGROW>
     end
 end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
+set(hPk, 'FontSize', 12);
 fn = fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix]);
 print(gcf, fn, '-dpng', '-r150');
 print(gcf, fn, '-depsc');
@@ -299,4 +316,22 @@ function [Pxx, f] = psdOf(T, tStart, fsHz, nWin)
 x = T.RootMyc1(T.Time >= tStart);
 x = x - mean(x);
 [Pxx, f] = pwelch(x, hann(nWin), nWin/2, nWin, fsHz);
+end
+
+function h = addArrow(axPanes, x, y, str, c)
+% Text arrow to the data point (x, y) in the pane that contains y, text to
+% the lower right if there is no room above (as plotIPC_PSD_Paper)
+ax = axPanes(end);
+for a = axPanes
+    yl = get(a, 'YLim');
+    if y >= yl(1) && y <= yl(2), ax = a; break; end
+end
+pos = get(ax, 'Position');
+xl = get(ax, 'XLim'); yl = get(ax, 'YLim');
+xn = pos(1) + (x - xl(1))/diff(xl)*pos(3);
+yn = pos(2) + (y - yl(1))/diff(yl)*pos(4);
+dx = 0.05; dy = 0.07;
+if yn + dy > 0.88, dy = -0.07; dx = 0.06; end
+h = annotation(get(ax, 'Parent'), 'textarrow', [xn + dx, xn], [yn + dy, yn], ...
+    'String', str, 'Color', c);
 end
