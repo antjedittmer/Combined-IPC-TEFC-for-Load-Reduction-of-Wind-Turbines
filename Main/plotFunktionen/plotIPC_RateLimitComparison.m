@@ -29,7 +29,16 @@ function plotIPC_RateLimitComparison(figDir, dataSet)
 %     red, yellow for the three blades) for 4, 8 and 13 deg/s
 %   - fig02_PSDroot_ratecomp[_fadeIn]: PSD of the blade 1 root out-of-plane moment
 %     (RootMyc1), baseline (black), IPC 4 (blue), 8 (red), 13 deg/s (yellow)
+%   - fig02_PSDroot_breaky_IPC[_fadeIn] (and for "fadeIn"
+%     fig02_PSDroot_breaky_RL08_IPCTEF_fadeIn): paper-style PSD figures of
+%     plotIPC_PSD_Paper
 %   The 1P/2P peak reductions and the standard deviations are printed.
+%
+%   For "fadeIn" (current values for the thesis), the time series and the
+%   PSD are also stored in plotFunktionen/figIPCThesis as
+%   fig00a_Timeseries1/2/3 (4, 8, 13 deg/s) and fig02_PSDroot_breaky_ratecomp
+%   (.eps and .png), together with tab_stddev_unified_IPC.tex, the table
+%   tab:stddev_unified_IPC of the thesis (Section 4.2) with these values.
 %
 %   No simulation and no Post_processing folder needed.
 
@@ -40,6 +49,11 @@ if nargin < 1 || isempty(figDir)
     figDir = fullfile(fileparts(mfilename('fullpath')), 'figIPC_RateLimits');
 end
 if ~isfolder(figDir), mkdir(figDir); end
+thesisDir = '';
+if string(dataSet) == "fadeIn"
+    thesisDir = fullfile(fileparts(mfilename('fullpath')), 'figIPCThesis');
+    if ~isfolder(thesisDir), mkdir(thesisDir); end
+end
 addpath(fullfile(fileparts(mfilename('fullpath')), 'breakyaxis'));
 
 resDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Results_IPC_PI_RateLimitOpt');
@@ -75,29 +89,86 @@ end
 
 %% Time series
 for k = 1:numel(cases)
-    plotTimeSeries(base, ipc{k}, cases(k), tStart, k, figDir, figSuffix);
+    fn = {fullfile(figDir, sprintf('fig00a_Timeseries%d%s', k, figSuffix))};
+    if ~isempty(thesisDir), fn{end+1} = fullfile(thesisDir, sprintf('fig00a_Timeseries%d', k)); end %#ok<AGROW>
+    plotTimeSeries(base, ipc{k}, cases(k), tStart, k, fn);
 end
 
 %% PSD of the blade 1 root out-of-plane moment
-plotPSDcomparison(base, ipc, cases, tStart, figDir, figSuffix);
+fn = {fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix])};
+if ~isempty(thesisDir), fn{end+1} = fullfile(thesisDir, 'fig02_PSDroot_breaky_ratecomp'); end
+plotPSDcomparison(base, ipc, cases, tStart, fn);
+
+%% Paper-style PSD figures (plotIPC_PSD_Paper)
+if string(dataSet) == "fadeIn"
+    plotIPC_PSD_Paper(struct('FigDir', figDir, 'FigNames', ...
+        ["fig02_PSDroot_breaky_IPC", "fig02_PSDroot_breaky_RL08_IPCTEF"] + figSuffix));
+else
+    plotIPC_PSD_Paper(struct('Files', string({cases.file}), ...
+        'Labels', "IPC " + [cases.rl] + "°/s", 'Groups', {{1:numel(cases)}}, ...
+        'FigDir', figDir, 'FigNames', "fig02_PSDroot_breaky_IPC" + figSuffix));
+end
 
 %% Standard deviations (as Table tab:stddev_unified_IPC)
 sig = {'NcIMUTAxs', 'GenPwr', 'RotSpeed', 'PitchRate', 'RootMyc1'};
 lbl = {'Tower fore-aft acc. (m/s^2)', 'Generated power (kW)', 'Rotor speed (rpm)', ...
     'Blade pitch rate (deg/s)', 'Blade root OoP moment (kNm)'};
+lblTex = {'Tower fore-aft acc.\ (m/s$^2$) ', 'Generated power (kW)            ', ...
+    'Rotor speed (rpm)               ', 'Blade pitch rate (\textdegree/s)', 'Blade root OoP moment (kNm)     '};
+sd = zeros(numel(sig), 1 + numel(cases));                                  % baseline, IPC
+for s = 1:numel(sig)
+    sd(s,1) = stdSignal(base, sig{s}, tStart);
+    for k = 1:numel(cases)
+        sd(s,k+1) = stdSignal(ipc{k}, sig{s}, tStart);
+    end
+end
 fprintf('\nStandard deviation from %g s (ratio to the baseline at 8 deg/s):\n', tStart);
 fprintf('%-30s %12s', 'Signal', 'Baseline');
 fprintf(' %18s', sprintf('IPC %d deg/s', cases(1).rl), sprintf('IPC %d deg/s', cases(2).rl), sprintf('IPC %d deg/s', cases(3).rl));
 fprintf('\n');
 for s = 1:numel(sig)
-    b = stdSignal(base, sig{s}, tStart);
-    fprintf('%-30s %12.3f', lbl{s}, b);
-    for k = 1:numel(cases)
-        v = stdSignal(ipc{k}, sig{s}, tStart);
-        fprintf(' %10.3f (%4.2f)', v, v/b);
-    end
+    fprintf('%-30s %12.3f', lbl{s}, sd(s,1));
+    fprintf(' %10.3f (%4.2f)', [sd(s,2:end); sd(s,2:end)/sd(s,1)]);
     fprintf('\n');
 end
+
+% LaTeX table tab:stddev_unified_IPC (thesis Section 4.2)
+if ~isempty(thesisDir)
+    fnTab = fullfile(thesisDir, 'tab_stddev_unified_IPC.tex');
+    writeStdTable(fnTab, sd, lblTex, cases, tStart, string(dataSet));
+    fprintf('Table written to %s\n', fnTab);
+end
+end
+
+function writeStdTable(fnTab, sd, lblTex, cases, tStart, dataSet)
+% Table tab:stddev_unified_IPC: standard deviation (ratio to the baseline)
+iPR = 4; iM = 5;                                                           % pitch rate, moment
+fid = fopen(fnTab, 'w', 'n', 'UTF-8');
+c = onCleanup(@() fclose(fid));
+g = vertcat(cases.gains);
+fprintf(fid, '%% Created by plotIPC_RateLimitComparison("%s") on %s\n', dataSet, char(datetime('now', 'Format', 'yyyy-MM-dd')));
+fprintf(fid, '%% Standard deviations from %g s; IPC gains K_P/K_I:', tStart);
+fprintf(fid, ' %d deg/s %.4f/%.4f;', [[cases.rl]; g(:,1)'; g(:,2)']);
+fprintf(fid, '\n%% Blade pitch rate: finite differences of BldPitch1; moment: RootMyc1\n');
+fprintf(fid, '\\begin{table}[htbp]\n    \\centering\n');
+fprintf(fid, ['   \\caption[Standard deviation comparison: Baseline PI vs. IPC for turbulent wind with \n', ...
+    '   different pitch rate limits.]{Standard deviation of IPC blade pitch rate and blade root \n', ...
+    '       out-of-plane moment for turbulent wind with different pitch rate limits. Values in brackets show \n', ...
+    '       the ratio to the PI baseline. Tower fore-aft acceleration, generated power, and rotor \n', ...
+    '       speed standard deviations are identical to the PI baseline across all rate limits and are \n', ...
+    '       therefore omitted. PI baseline standard deviations differ only for the blade pitch rate (%.2f\\textdegree/s)\n', ...
+    '       and blade root out-of-plane moment (%.2f\\,kNm).}\n'], sd(iPR,1), sd(iM,1));
+fprintf(fid, '    \\label{tab:stddev_unified_IPC}\n    \\begin{tabular}{l rrr}\n        \\toprule\n');
+fprintf(fid, '        & \\multicolumn{3}{c}{ IPC rate limit (\\textdegree/s) (ratio to CPC rate limit (\\textdegree/s))} \\\\\n');
+fprintf(fid, '        \\cmidrule(lr){2-4}\n');
+fprintf(fid, '        Signal & low: %d\\textdegree/s & standard: %d\\textdegree/s & high: %d\\textdegree/s \\\\\n', cases.rl);
+fprintf(fid, '        \\midrule\n');
+for s = 1:size(sd, 1)
+    fprintf(fid, '        %s', lblTex{s});
+    fprintf(fid, ' & %.2f (%.2f)', [sd(s,2:end); sd(s,2:end)/sd(s,1)]);
+    fprintf(fid, ' \\\\\n');
+end
+fprintf(fid, '        \\bottomrule\n    \\end{tabular}\n\\end{table}\n');
 end
 
 function T = toTable(TS)
@@ -115,11 +186,11 @@ else
 end
 end
 
-function plotTimeSeries(base, ipc, c, tStart, figNo, figDir, figSuffix)
+function plotTimeSeries(base, ipc, c, tStart, figNo, fnOut)
 % Wind, generator torque, pitch, pitch rate, rotor speed, tower fore-aft
 % acceleration, generator power and blade root out-of-plane moments
 yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'Pitch rate (°/s)', 'RotSpd (rpm)', ...
-    'TwrAcc_{FA} (m/s^2)', 'GenPwr (MW)', 'M_{yc,1} (MNm)'};
+    'TwrAcc_{FA} (m/s^2)', 'GenPwr (MW)', 'Bl1 MOoP (MNm)'};
 
 
 ib = base.Time >= tStart;
@@ -202,12 +273,10 @@ xlabel(ax(end), 'Time (s)');
 posDefault = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
-fn = fullfile(figDir, sprintf('fig00a_Timeseries%d%s', figNo, figSuffix));
-print(gcf, fn, '-dpng', '-r150');
-print(gcf, fn, '-depsc');
+printFig(gcf, fnOut);
 end
 
-function plotPSDcomparison(base, ipc, cases, tStart, figDir, figSuffix)
+function plotPSDcomparison(base, ipc, cases, tStart, fnOut)
 % PSD (Welch, Hann window of 2^14 samples, 50 % overlap) of RootMyc1
 fsHz = 1/mean(diff(base.Time));
 nWin = 2^14;
@@ -247,7 +316,7 @@ grid on; axis tight;
 xline(f1P, ':', 'HandleVisibility', 'off');
 xline(2*f1P, ':', 'HandleVisibility', 'off');
 xlabel('Frequency (Hz)');
-ylabel('PSD M_{yc,1} (kNm^2/Hz)');
+ylabel('PSD Bl1 MOoP (kNm^2/Hz)');
 % Legend as coloured title (the split axis below replaces the axes)
 rgb = @(c) ['\color[rgb]{', sprintf('%g,%g,%g', c), '}'];
 titleStr = ['\color{black}Baseline 8°/s;  ', rgb(cl{2}), 'IPC 4°/s;  ', rgb(cl{3}), 'IPC 8°/s;  ', ...
@@ -309,9 +378,15 @@ for n = 1:2
 end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
 set(hPk, 'FontSize', 12);
-fn = fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix]);
-print(gcf, fn, '-dpng', '-r150');
-print(gcf, fn, '-depsc');
+printFig(gcf, fnOut);
+end
+
+function printFig(h, fnOut)
+% Save the figure as .png and .eps under all names in fnOut
+for k = 1:numel(fnOut)
+    print(h, fnOut{k}, '-dpng', '-r150');
+    print(h, fnOut{k}, '-depsc');
+end
 end
 
 function [Pxx, f] = psdOf(T, tStart, fsHz, nWin)

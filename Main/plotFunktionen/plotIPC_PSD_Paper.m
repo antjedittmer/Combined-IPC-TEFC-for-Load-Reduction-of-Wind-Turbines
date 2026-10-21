@@ -22,7 +22,7 @@ function plotIPC_PSD_Paper(opts)
 %                  (default {[1 2 3], 4}); up to 4 controllers per group
 %     BaselineRate rate limit of the baseline in deg/s (default 8)
 %     Channel      FAST channel (default RootMyc1)
-%     YLabel       y axis label (default blade root out-of-plane moment)
+%     YLabel       y axis label (default PSD Bl1 MOoP, blade 1 root out-of-plane moment)
 %     FMax         upper frequency in Hz (default 0.7)
 %     TStart       start of the evaluation window in s (default 66)
 %     FigDir       output folder (default plotFunktionen/figIPC_RateLimits)
@@ -51,7 +51,7 @@ def.Labels       = ["IPC 4°/s", "IPC 8°/s", "IPC 13°/s", "IPC + TEFC 8°/s"];
 def.Groups       = {[1 2 3], 4};
 def.BaselineRate = 8;
 def.Channel      = "RootMyc1";
-def.YLabel       = {'PSD Blade root out-of-plane moment,' 'kNm^2/Hz'};
+def.YLabel       = {'PSD Bl1 MOoP,' 'kNm^2/Hz'};
 def.FMax         = 0.7;
 def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');

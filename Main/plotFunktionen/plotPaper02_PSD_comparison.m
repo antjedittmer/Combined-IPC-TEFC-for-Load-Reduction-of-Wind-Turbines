@@ -142,7 +142,7 @@ end
 
 xlabelStr = 'Frequency, Hz';
 %ylabelStr = 'PSD Blade root flapwise moment, kNm^2/Hz';
-ylabelStr = {'PSD Blade root out-of-plane moment,' 'kNm^2/Hz'}; % RootMyc1
+ylabelStr = {'PSD Bl1 MOoP,' 'kNm^2/Hz'}; % RootMyc1, blade 1 root out-of-plane moment
 cl = {'k-','b-','g-.','r--','m-.'};
 fs = 12;
 lw = 0.8;
