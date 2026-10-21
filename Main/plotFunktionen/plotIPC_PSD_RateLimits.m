@@ -32,6 +32,8 @@ function P = plotIPC_PSD_RateLimits(opts)
 %     LogScale     logarithmic PSD axis (default true)
 %     FigDir       output folder (default plotFunktionen/figIPC_RateLimits)
 %     FigName      file name of the figure (default fig03_PSD_ratecomp)
+%     Plot         false: only compute P, no table and no figure (default
+%                  true; used by plotIPC_PSD_Paper)
 %
 %   Example with the fmincon gains of the fade-in optimization (time series
 %   in Results_IPC_PI_RateLimitOpt/FadeIn/TimeSeries, created with
@@ -60,6 +62,7 @@ def.NWin         = 2^14;
 def.LogScale     = true;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigName      = 'fig03_PSD_ratecomp';
+def.Plot         = true;
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -117,6 +120,7 @@ for c = 1:numel(channels)
 end
 f = P.f;
 iF = f <= opts.FMax;
+if ~opts.Plot, return; end
 
 %% Peaks at 1P, 2P, 3P (maximum within +-15 %) and standard deviations
 peak = @(Pk, fn) max(Pk(f >= 0.85*fn & f <= 1.15*fn));
