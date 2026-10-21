@@ -227,6 +227,11 @@ and frequency range are options (`help plotIPC_PSD_RateLimits`). It needs the Si
 Toolbox (`pwelch`), but no simulation. The help also shows how to store the time series of the
 fade-in gains and plot them.
 
+`plotIPC_RateLimitComparison` (time series and PSD figures of section 4.2) also reads these
+committed files: `plotIPC_RateLimitComparison([], "beforeFadeIn")` gives the figures with the
+gains above, `plotIPC_RateLimitComparison` (default `"fadeIn"`) those with the fmincon gains of
+`FadeIn/TimeSeries` (figure names with the suffix `_fadeIn`).
+
 ## Files
 
 Each run folder contains:

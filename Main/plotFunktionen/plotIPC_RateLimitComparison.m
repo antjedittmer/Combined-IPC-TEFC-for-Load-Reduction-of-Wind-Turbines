@@ -1,40 +1,65 @@
-function plotIPC_RateLimitComparison(figDir)
+function plotIPC_RateLimitComparison(figDir, dataSet)
 %PLOTIPC_RATELIMITCOMPARISON Time series and PSD plots of the optimized PI-IPC
-%   plotIPC_RateLimitComparison(figDir) reproduces the IPC figures of thesis
-%   section 4.2 with the gains of Results_IPC_PI_RateLimitOpt (best cost
-%   per pitch rate limit) from the stored time series (option
-%   'SaveTimeSeries' of optimizeIPC_PI_RateLimits):
-%   - 4 deg/s:  K_P = 0.7455, K_I = 0.2168 (fminsearch, RL04_refine),
-%               Post_processing/IPC_PI_TS_RL04_opt
-%   - 8 deg/s:  K_P = 1.0959, K_I = 0.2504 (fmincon, RL08_fmincon),
-%               Post_processing/IPC_PI_TS_RL08_x08
-%   - 13 deg/s: K_P = 0.9669, K_I = 0.2209 (fmincon, RL13_fmincon_x08),
-%               Post_processing/IPC_PI_TS_RL13_opt
+%   plotIPC_RateLimitComparison(figDir, dataSet) plots the optimized PI-IPC
+%   at the pitch rate limits 4, 8 and 13 deg/s from the time series stored
+%   in the repository (25 channels, option 'SaveTimeSeries' of
+%   optimizeIPC_PI_RateLimits), no simulation needed. dataSet:
+%   - "fadeIn" (default): fmincon gains of the re-optimization with the
+%     IPC/TEF fade-in, Results_IPC_PI_RateLimitOpt/FadeIn/TimeSeries
+%     (created with storeIPC_FadeInTimeSeries):
+%     4 deg/s:  K_P = 0.2533, K_I = 0.1033
+%     8 deg/s:  K_P = 1.2219, K_I = 0.3702
+%     13 deg/s: K_P = 1.2227, K_I = 0.3653
+%     The figure names get the suffix _fadeIn.
+%   - "beforeFadeIn": the gains of the thesis figures of section 4.2
+%     (before the fade-in, model of commit 6cb257c),
+%     Results_IPC_PI_RateLimitOpt/TimeSeries (copies of
+%     Post_processing/IPC_PI_TS_RL04_opt, _RL08_x08, _RL13_opt):
+%     4 deg/s:  K_P = 0.7455, K_I = 0.2168 (fminsearch, RL04_refine; the
+%               fmincon run RL04_fmincon ended at the same point)
+%     8 deg/s:  K_P = 1.0959, K_I = 0.2504 (fmincon, RL08_fmincon)
+%     13 deg/s: K_P = 0.9669, K_I = 0.2209 (fmincon, RL13_fmincon_x08)
 %   Baseline (CPC PI, IPC off) with the standard rate limit of 8 deg/s.
 %   Wind: optimization wind field 18 m/s, NTM class A (18mps.bts), 660 s,
 %   evaluation window from 66 s (as in the optimization).
 %
 %   Figures (figDir, default plotFunktionen/figIPC_RateLimits):
-%   - fig00a_Timeseries1/2/3: baseline (black) vs. IPC (blue; pitch: blue,
+%   - fig00a_Timeseries1/2/3[_fadeIn]: baseline (black) vs. IPC (blue; pitch: blue,
 %     red, yellow for the three blades) for 4, 8 and 13 deg/s
-%   - fig02_PSDroot_ratecomp: PSD of the blade 1 root out-of-plane moment
+%   - fig02_PSDroot_ratecomp[_fadeIn]: PSD of the blade 1 root out-of-plane moment
 %     (RootMyc1), baseline (black), IPC 4 (blue), 8 (red), 13 deg/s (yellow)
 %   The 1P/2P peak reductions and the standard deviations are printed.
 %
-%   Start from the Main folder.
+%   No simulation and no Post_processing folder needed.
 
+if nargin < 2 || isempty(dataSet)
+    dataSet = "fadeIn";
+end
 if nargin < 1 || isempty(figDir)
     figDir = fullfile(fileparts(mfilename('fullpath')), 'figIPC_RateLimits');
 end
 if ~isfolder(figDir), mkdir(figDir); end
 addpath(fullfile(fileparts(mfilename('fullpath')), 'breakyaxis'));
 
-ppDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Post_processing');
+resDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Results_IPC_PI_RateLimitOpt');
+switch string(dataSet)
+    case "fadeIn"
+        tsDir = fullfile(resDir, 'FadeIn', 'TimeSeries');
+        B = load(fullfile(resDir, 'FadeIn', 'best.mat'), 'best');
+        gains = {B.best.RL04_IPC_fmincon, B.best.RL08_IPC_fmincon, B.best.RL13_IPC_fmincon};
+        figSuffix = '_fadeIn';
+    case "beforeFadeIn"
+        tsDir = fullfile(resDir, 'TimeSeries');
+        gains = {[0.7455 0.2168], [1.0959 0.2504], [0.9669 0.2209]};
+        figSuffix = '';
+    otherwise
+        error('Unknown dataSet "%s" ("fadeIn" or "beforeFadeIn").', dataSet);
+end
 cases = struct('rl', {4, 8, 13}, ...
-    'file', {fullfile(ppDir, 'IPC_PI_TS_RL04_opt', 'TimeSeries_RL04.mat'), ...
-             fullfile(ppDir, 'IPC_PI_TS_RL08_x08', 'TimeSeries_RL08.mat'), ...
-             fullfile(ppDir, 'IPC_PI_TS_RL13_opt', 'TimeSeries_RL13.mat')}, ...
-    'gains', {[0.7455 0.2168], [1.0959 0.2504], [0.9669 0.2209]});
+    'file', {fullfile(tsDir, 'TimeSeries_RL04.mat'), fullfile(tsDir, 'TimeSeries_RL08.mat'), ...
+             fullfile(tsDir, 'TimeSeries_RL13.mat')}, ...
+    'gains', gains);
+fprintf('Data set %s: %s\n', dataSet, tsDir);
 tStart = 66; % s, evaluation window as in the optimization
 
 % Baseline: standard rate limit 8 deg/s
@@ -48,11 +73,11 @@ end
 
 %% Time series
 for k = 1:numel(cases)
-    plotTimeSeries(base, ipc{k}, cases(k), tStart, k, figDir);
+    plotTimeSeries(base, ipc{k}, cases(k), tStart, k, figDir, figSuffix);
 end
 
 %% PSD of the blade 1 root out-of-plane moment
-plotPSDcomparison(base, ipc, cases, tStart, figDir);
+plotPSDcomparison(base, ipc, cases, tStart, figDir, figSuffix);
 
 %% Standard deviations (as Table tab:stddev_unified_IPC)
 sig = {'NcIMUTAxs', 'GenPwr', 'RotSpeed', 'PitchRate', 'RootMyc1'};
@@ -88,7 +113,7 @@ else
 end
 end
 
-function plotTimeSeries(base, ipc, c, tStart, figNo, figDir)
+function plotTimeSeries(base, ipc, c, tStart, figNo, figDir, figSuffix)
 % Wind, generator torque, pitch, rotor speed, tower fore-aft acceleration,
 % generator power and blade root out-of-plane moments
 yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'RotSpd (rpm)', 'TwrAcc_{FA} (m/s^2)', ...
@@ -132,12 +157,12 @@ xlabel(ax(end), 'Time (s)');
 posDefault = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3)*1.4, posDefault(4)*2.3]);
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 10);
-fn = fullfile(figDir, sprintf('fig00a_Timeseries%d', figNo));
+fn = fullfile(figDir, sprintf('fig00a_Timeseries%d%s', figNo, figSuffix));
 print(gcf, fn, '-dpng', '-r150');
 print(gcf, fn, '-depsc');
 end
 
-function plotPSDcomparison(base, ipc, cases, tStart, figDir)
+function plotPSDcomparison(base, ipc, cases, tStart, figDir, figSuffix)
 % PSD (Welch, Hann window of 2^14 samples, 50 % overlap) of RootMyc1
 fsHz = 1/mean(diff(base.Time));
 nWin = 2^14;
@@ -191,7 +216,7 @@ else
     title(titleStr, 'FontWeight', 'normal');
 end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
-fn = fullfile(figDir, 'fig02_PSDroot_ratecomp');
+fn = fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix]);
 print(gcf, fn, '-dpng', '-r150');
 print(gcf, fn, '-depsc');
 end
