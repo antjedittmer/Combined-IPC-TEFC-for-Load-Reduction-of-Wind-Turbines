@@ -118,8 +118,15 @@ function plotTimeSeries(base, ipc, c, tStart, figNo, figDir, figSuffix)
 % generator power and blade root out-of-plane moments
 yAx = {'Wind (m/s)', 'GenTq (kNm)', 'Pitch (°)', 'RotSpd (rpm)', 'TwrAcc_{FA} (m/s^2)', ...
     'GenPwr (MW)', 'M_{yb,1} (MNm)'};
+
+
 ib = base.Time >= tStart;
 ii = ipc.Time >= tStart;
+
+if std(ipc.GenTq(ii)) < 10 
+yAx(2)=[];
+end
+
 tb = base.Time(ib);
 ti = ipc.Time(ii);
 figure(100 + figNo); clf;
@@ -131,32 +138,51 @@ for k = 1:numel(yAx)
     ylabel(yAx{k});
 end
 cPitch = [0 0.4470 0.7410; 0.8500 0.3250 0.0980; 0.9290 0.6940 0.1250]; % blue, red, yellow
-plot(ax(1), tb, base.Wind1VelX(ib), 'k');
-plot(ax(2), tb, base.GenTq(ib), 'k', 'DisplayName', 'Baseline (8°/s)');
-plot(ax(2), ti, ipc.GenTq(ii), 'Color', cPitch(1,:), 'DisplayName', sprintf('IPC (%d°/s)', c.rl));
-plot(ax(3), tb, base.BldPitch1(ib), 'k', 'LineWidth', 1.2);
-for b = 1:3
-    plot(ax(3), ti, ipc.(sprintf('BldPitch%d', b))(ii), 'Color', cPitch(b,:));
+idxAx = 1;
+plot(ax(idxAx), tb, base.Wind1VelX(ib), 'k');
+idxAx = 1+idxAx;
+
+if 10 < std(ipc.GenTq(ii)) 
+plot(ax(idxAx), tb, base.GenTq(ib), 'k', 'DisplayName', 'Baseline (8°/s)');
+plot(ax(idxAx), ti, ipc.GenTq(ii), 'Color', cPitch(1,:), 'DisplayName', sprintf('IPC (%d°/s)', c.rl));
+idxAx = 1+idxAx;
 end
-plot(ax(4), tb, base.RotSpeed(ib), 'k');
-plot(ax(4), ti, ipc.RotSpeed(ii), 'Color', cPitch(1,:));
-plot(ax(5), tb, base.NcIMUTAxs(ib), 'k');
-plot(ax(5), ti, ipc.NcIMUTAxs(ii), 'Color', cPitch(1,:));
-plot(ax(6), tb, base.GenPwr(ib)/1000, 'k');
-plot(ax(6), ti, ipc.GenPwr(ii)/1000, 'Color', cPitch(1,:));
-plot(ax(7), tb, base.RootMyc1(ib)/1000, 'k');
-plot(ax(7), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
-title(ax(1), sprintf('Baseline (black, 8°/s) vs. IPC PI (K_P = %.4f, K_I = %.4f), pitch rate limit %d°/s', ...
+
+plot(ax(idxAx), tb, base.BldPitch1(ib), 'k', 'LineWidth', 1.2);
+for b = 1:3
+    plot(ax(idxAx), ti, ipc.(sprintf('BldPitch%d', b))(ii), 'Color', cPitch(b,:));
+end
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.RotSpeed(ib), 'k');
+plot(ax(idxAx), ti, ipc.RotSpeed(ii), 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.NcIMUTAxs(ib), 'k');
+plot(ax(idxAx), ti, ipc.NcIMUTAxs(ii), 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.GenPwr(ib)/1000, 'k');
+plot(ax(idxAx), ti, ipc.GenPwr(ii)/1000, 'Color', cPitch(1,:));
+idxAx = 1+idxAx;
+
+plot(ax(idxAx), tb, base.RootMyc1(ib)/1000, 'k');
+plot(ax(idxAx), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
+title(ax(1), sprintf('Baseline (black) vs. IPC PI (K_P = %.4f, K_I = %.4f), pitch rate limit %d°/s', ...
     c.gains(1), c.gains(2), c.rl));
 legend(ax(2), 'Location', 'northeast');
 linkaxes(ax, 'x'); axis(ax, 'tight');
+
+if 10 < std(ipc.GenTq(ii)) 
 % Torque: minimum - 10 % to maximum + 10 % (constant above rated)
 tq = [base.GenTq(ib); ipc.GenTq(ii)];
 ylim(ax(2), [0.9*min(tq), 1.1*max(tq)]);
+end
+
 xlabel(ax(end), 'Time (s)');
 posDefault = get(0, 'DefaultFigurePosition');
-set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3)*1.4, posDefault(4)*2.3]);
-set(findall(gcf, '-property', 'FontSize'), 'FontSize', 10);
+set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
 fn = fullfile(figDir, sprintf('fig00a_Timeseries%d%s', figNo, figSuffix));
 print(gcf, fn, '-dpng', '-r150');
 print(gcf, fn, '-depsc');
@@ -190,7 +216,7 @@ cl = {'k', [0 0.4470 0.7410], [0.8500 0.3250 0.0980], [0.9290 0.6940 0.1250]};
 figure(200); clf;
 nfpos = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [nfpos(1:3), nfpos(4)*0.9], 'Name', 'PSD blade root out-of-plane moment', 'NumberTitle', 'off');
-plot(f(iF), Pb(iF), 'Color', cl{1}, 'LineWidth', 1, 'DisplayName', 'Baseline, 8°/s'); hold on;
+plot(f(iF), Pb(iF), 'Color', cl{1}, 'LineWidth', 1, 'DisplayName', 'Baseline'); hold on;
 for k = 1:numel(ipc)
     plot(f(iF), P{k}(iF), 'Color', cl{k+1}, 'LineWidth', 1, ...
         'DisplayName', sprintf('IPC, %d°/s', cases(k).rl));
