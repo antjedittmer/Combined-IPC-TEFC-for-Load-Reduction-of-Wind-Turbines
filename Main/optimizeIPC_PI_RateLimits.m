@@ -406,6 +406,8 @@ try
     OutData = out.get('OutData');
     PitchCmd = out.get('PitchCmd');                                        % blade pitch command into FAST (deg)
     OutList = string(evalin('base', 'OutList'));
+    clear out
+    Simulink.sdi.clear;                                                    % the Data Inspector repository in tempdir fills the disk otherwise
 catch ME
     clear mex
     res.msg = ME.message;

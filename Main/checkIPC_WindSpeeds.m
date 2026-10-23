@@ -15,7 +15,10 @@ function Summary = checkIPC_WindSpeeds(opts)
 %                    "TurbKlasseAnewSeed": verification set, class A, new
 %                    seed; "" for the verification set with class B)
 %     WindSpeeds     mean wind speeds in m/s (default 12:2:24 and 25)
-%     Gains          IPC [K_P, K_I] (default fade-in fmincon, 8 deg/s)
+%     Gains          IPC [K_P, K_I] (default fade-in fmincon, 8 deg/s), or
+%                    [K_P, K_I, TEF K_P] with Vars "IPC_TEF_KP" (AALC)
+%     Vars           variables of the gains, see optimizeIPC_PI_RateLimits
+%                    (default "IPC")
 %     RateLimit      pitch rate limit in deg/s (default 8)
 %     GainScheduling IPC gain scheduling (see optimizeIPC_PI_RateLimits),
 %                    default [] (none)
@@ -36,6 +39,7 @@ def.WindSpeeds     = [12 14 16 18 20 22 24 25];
 def.Gains          = B.best.RL08_IPC_fmincon;
 def.RateLimit      = 8;
 def.GainScheduling = [];
+def.Vars           = "IPC";
 def.Name           = "";
 fn = fieldnames(def);
 for k = 1:numel(fn)
@@ -60,9 +64,9 @@ for w = 1:nW
     folder = fullfile(simDir, sprintf('%02dmps', ws));
     fRes = fullfile(folder, 'Results.mat');
     if ~isfile(fRes)
-        fprintf('\n##### %s: %g m/s, IPC K_P = %.4f, K_I = %.4f, %g deg/s\n', ...
-            opts.Name, ws, opts.Gains(1), opts.Gains(2), opts.RateLimit);
-        optimizeIPC_PI_RateLimits(struct('RateLimits', opts.RateLimit, 'Optimizer', "none", ...
+        fprintf('\n##### %s: %g m/s, gains %s, %g deg/s\n', ...
+            opts.Name, ws, mat2str(opts.Gains, 5), opts.RateLimit);
+        optimizeIPC_PI_RateLimits(struct('RateLimits', opts.RateLimit, 'Optimizer', "none", 'Vars', opts.Vars, ...
             'x0', opts.Gains, 'WindFile', fullfile("WindData", "Eigene_Wind_Dateien", opts.WindSet, sprintf("%dmps.bts", ws)), ...
             'GainScheduling', opts.GainScheduling, 'SaveTimeSeries', true, 'ResultsFolder', folder));
     end
@@ -92,7 +96,9 @@ yline(0, 'k'); grid on;
 xlabel('Mean wind speed (m/s)');
 ylabel('Change to baseline (%)');
 legend('Blade root DEL (max. of 3 blades)', 'Tower base DEL', 'Mean power', 'Location', 'best', 'AutoUpdate', 'off');
-title(sprintf('IPC K_P = %.4f, K_I = %.4f, %g°/s (tuned at 18 m/s)', opts.Gains(1), opts.Gains(2), opts.RateLimit));
+tStr = sprintf('IPC K_P = %.4f, K_I = %.4f', opts.Gains(1), opts.Gains(2));
+if numel(opts.Gains) > 2, tStr = [tStr, sprintf(', TEF K_P = %.4f', opts.Gains(3))]; end
+title(sprintf('%s, %g°/s (tuned at 18 m/s)', tStr, opts.RateLimit));
 yyaxis right;
 plot(S.WindSpeed_mps, 100*S.RelADC, '^--', 'LineWidth', 1);
 ylabel('Pitch activity ADC, change (%)');
