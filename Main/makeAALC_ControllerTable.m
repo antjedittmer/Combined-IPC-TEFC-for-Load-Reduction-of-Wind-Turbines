@@ -13,6 +13,9 @@ function Tab = makeAALC_ControllerTable(set)
 %   of runAALC_BelowRated and 10, 12-25 m/s from the sweep
 %   AALCfromIPC_RL08_TurbKlasseAnewSeed. The test set has no 11 and 13 m/s;
 %   11 m/s is taken from the optimization set (marked in Source).
+%   Tab = makeAALC_ControllerTable("B") uses the verification set with NTM
+%   class B (Eigene_Wind_Dateien, sweeps AALCbelow_<ws>mps_KlasseB and
+%   AALCfromIPC_RL08_KlasseB), 4-25 m/s with the same gains.
 %
 %   Columns: wind speed, gains, worst blade root DEL change (max. of the
 %   three blades), tower base DEL change, mean power change, std power
@@ -22,11 +25,12 @@ function Tab = makeAALC_ControllerTable(set)
 %   so the relative change is Inf there).
 %
 %   Results: Results_IPC_PI_RateLimitOpt/FadeIn/AALC_ControllerTable.csv/.mat
-%   (optimization set) or AALC_ControllerTable_TestSet.csv/.mat (test set).
+%   (optimization set), AALC_ControllerTable_TestSet.csv/.mat (test set) or
+%   AALC_ControllerTable_KlasseB.csv/.mat (class B).
 %   Start from the Main folder.
 
 arguments
-    set (1,1) string {mustBeMember(set, ["optimization", "test"])} = "optimization"
+    set (1,1) string {mustBeMember(set, ["optimization", "test", "B"])} = "optimization"
 end
 fadeIn = fullfile(pwd, 'Results_IPC_PI_RateLimitOpt', 'FadeIn');
 pp = fullfile(pwd, 'Post_processing');
@@ -34,6 +38,10 @@ if set == "test"
     windSet = 'TurbKlasseAnewSeed';
     ws = [4 6 8 10 11 12 14 16 18 20 22 24 25]';
     fOut = 'AALC_ControllerTable_TestSet';
+elseif set == "B"
+    windSet = 'KlasseB';
+    ws = [4 6 8 10 11 12 13 14 16 18 20 22 24 25]';
+    fOut = 'AALC_ControllerTable_KlasseB';
 else
     windSet = 'TurbKlasseA';
     ws = [4 6 8 10 11 12 13 14 16 18 20 22 24 25]';
