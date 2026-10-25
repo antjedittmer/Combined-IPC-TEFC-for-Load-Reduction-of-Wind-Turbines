@@ -29,6 +29,8 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   (CPC + IPC) in the pitch actuator model and to the rate saturation of
 %   the CPC (Control.Pitch.Minrate/Maxrate). The model is changed in memory
 %   only and is not saved.
+%   The max. pitch rate (MaxRate) is computed from the pitch command into
+%   FAST (model variable PitchCmd), MaxRateFAST from the FAST output BldPitch.
 %
 %   opts.Vars selects the optimization variables x:
 %   - "IPC" (default): [K_P, K_I] of the IPC, TEF off
@@ -41,6 +43,12 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %     together (TEF K_D = 0)
 %   The TEF K_I is opts.TEF_K_I (default 0). The baseline is always IPC and
 %   TEF off, so the costs of all variants are comparable.
+%
+%   opts.GainScheduling schedules the IPC K_P and K_I over the collective
+%   pitch command, as the gain scheduling of the baseline pitch controller:
+%   a struct with PitchAngles (rad, breakpoints), FactorP and FactorI
+%   (factors for K_P and K_I, clipped outside the breakpoints). Default []:
+%   no scheduling (factor 1), i.e. the model behaves as without it.
 %
 %   Start from the Main folder, e.g.
 %       Results = optimizeIPC_PI_RateLimits;
@@ -73,6 +81,7 @@ def.Vars          = "IPC";                                                  % "I
 def.IPCGains      = [1.0959 0.2504];                                        % fixed IPC [K_P, K_I] for the TEF variants
 def.TEF_K_I       = 0;                                                      % TEF K_I (not optimized)
 def.TEFKDScale    = 0.01;                                                   % TEF_KPKD: K_D = x(2)*TEFKDScale
+def.GainScheduling = [];                                                  % IPC gain scheduling (PitchAngles, FactorP, FactorI), [] = off
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -136,6 +145,11 @@ SimConfig.controller.TEF.K_I = 0;
 SimConfig.controller.TEF.K_D = 0;
 SimConfig.controller.TEF.G   = 0;
 SimConfig.controller.IPC.K_D = 0;
+if isempty(opts.GainScheduling)
+    SimConfig.controller.IPC.GS = struct('PitchAngles', [0 1], 'FactorP', [1 1], 'FactorI', [1 1]);
+else
+    SimConfig.controller.IPC.GS = opts.GainScheduling;
+end
 
 assignin('base', 'TMax', opts.TMax);
 assignin('base', 'DT', 0.01);
@@ -390,7 +404,10 @@ try
     out = sim(mdl, 'StopTime', num2str(opts.TMax), 'ReturnWorkspaceOutputs', 'on');
     clear mex
     OutData = out.get('OutData');
+    PitchCmd = out.get('PitchCmd');                                        % blade pitch command into FAST (deg)
     OutList = string(evalin('base', 'OutList'));
+    clear out
+    Simulink.sdi.clear;                                                    % the Data Inspector repository in tempdir fills the disk otherwise
 catch ME
     clear mex
     res.msg = ME.message;
@@ -422,11 +439,20 @@ for b = 1:3
     pitchRate(:, b) = diff(pitch(idx)) / dt;                               % deg/s
 end
 res.ADC      = mean(abs(pitchRate), 'all');                                % mean absolute pitch rate (deg/s)
-res.MaxRate  = max(abs(pitchRate), [], 'all');
+% Max. pitch rate from the command into FAST (after the rate limiter). The
+% FAST output BldPitch contains one-step zigzags from the quadratic input
+% extrapolation (InterpOrder 2), which exceed the rate limit by up to ~7 deg/s.
+tCmd = PitchCmd.time;
+iCmd = tCmd >= opts.TStartLog;
+cmdRate = diff(PitchCmd.signals.values(iCmd, :)) ./ diff(tCmd(iCmd));      % deg/s
+res.MaxRate     = max(abs(cmdRate), [], 'all');
+res.MaxRateFAST = max(abs(pitchRate), [], 'all');                         % from BldPitch, for comparison
 power        = ch("GenPwr");
 genSpeed     = ch("GenSpeed");
 res.Power    = mean(power(idx));                                           % kW
 res.StdSpeed = std(genSpeed(idx));                                         % rpm
+pitch1 = ch("BldPitch1");
+res.MeanPitch = mean(pitch1(idx));                                         % deg, blade 1, evaluation window
 res.x        = g;
 if opts.SaveTimeSeries
     res.TS = struct('OutData', OutData, 'OutList', OutList);
