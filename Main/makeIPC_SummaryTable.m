@@ -12,8 +12,9 @@ function Tab = makeIPC_SummaryTable()
 %   Criteria (ratio to the baseline, < 1 = reduction), as
 %   makeAALC_SummaryTable:
 %   - C_DEL_b (worst of the three blade root DELs), C_DEL_t (tower base
-%     DEL), C_P (mean power), C_dP (std power, t >= 66 s): mean of the
-%     ratios of the single wind speeds
+%     DEL), C_DEL_tt (tower top fore-aft DEL, YawBrMyp, Woehler exponent 3
+%     as the tower base, t >= 66 s), C_P (mean power), C_dP (std power,
+%     t >= 66 s): mean of the ratios of the single wind speeds
 %   - C_Act: actuator power as in the thesis (Eq. CAct_calc): mean over the
 %     blades and time of |pitch rate * pitch moment RootMzb|, t >= 66 s;
 %     ratio of the means over the wind speeds
@@ -35,7 +36,7 @@ for r = 1:numel(ranges)
     for s = 1:numel(sets)
         ws = sets(s).ws(sets(s).ws >= ranges(r).lim(1) & sets(s).ws <= ranges(r).lim(2));
         n = numel(ws);
-        [blade, tower, pMean, pStd, actO, actB] = deal(nan(n, 1));
+        [blade, tower, towerTop, pMean, pStd, actO, actB] = deal(nan(n, 1));
         for k = 1:n
             folder = fullfile(pp, ['IPCcheck_fixedRL08_' sets(s).windSet], sprintf('%02dmps', ws(k)));
             R = load(fullfile(folder, 'Results.mat'), 'Results');
@@ -44,16 +45,17 @@ for r = 1:numel(ranges)
             tower(k) = 1 + x.RelChange.TwrBsMyt;
             pMean(k) = 1 + x.RelChange.Power;
             S = load(fullfile(folder, 'TimeSeries_RL08.mat'), 'TimeSeries');
+            towerTop(k) = delChannel(S.TimeSeries.Optimum, "YawBrMyp", 3)/delChannel(S.TimeSeries.Baseline, "YawBrMyp", 3);
             pStd(k) = stdPower(S.TimeSeries.Optimum)/stdPower(S.TimeSeries.Baseline);
             actO(k) = actuatorPower(S.TimeSeries.Optimum);
             actB(k) = actuatorPower(S.TimeSeries.Baseline);
         end
         rows(end+1, :) = {string(ranges(r).name), string(sets(s).name), string(sets(s).turb), ...
-            string(mat2str(ws)), mean(blade), mean(tower), mean(pMean), mean(pStd), sum(actO)/sum(actB)}; %#ok<AGROW>
+            string(mat2str(ws)), mean(blade), mean(tower), mean(towerTop), mean(pMean), mean(pStd), sum(actO)/sum(actB)}; %#ok<AGROW>
     end
 end
 Tab = cell2table(rows, 'VariableNames', {'Range', 'Dataset', 'TurbClass', 'WindSpeeds_mps', ...
-    'C_DEL_b', 'C_DEL_t', 'C_P', 'C_dP', 'C_Act'});
+    'C_DEL_b', 'C_DEL_t', 'C_DEL_tt', 'C_P', 'C_dP', 'C_Act'});
 disp(Tab);
 writetable(Tab, fullfile(fadeIn, 'IPC_SummaryTable.csv'));
 save(fullfile(fadeIn, 'IPC_SummaryTable.mat'), 'Tab');
@@ -70,12 +72,12 @@ p(['    \\caption[Wind turbine evaluation criteria for IPC: Mean values of the o
     'over the above rated wind speeds]{\\label{tab:IPC_summary} Wind turbine evaluation criteria for IPC: Mean values ' ...
     'of the optimization and verification datasets over the above rated wind speed ranges, normalized by the baseline ' ...
     'without IPC. IPC gains optimized at 18\\,m/s with the pitch rate limit 8\\textdegree/s for all wind speeds: ' ...
-    '$K_{P,\\text{IPC}} = 1.222$ and $K_{I,\\text{IPC}} = 0.370$. Criteria are tower base and blade DELs, power mean ' ...
+    '$K_{P,\\text{IPC}} = 1.222$ and $K_{I,\\text{IPC}} = 0.370$. Criteria are blade, tower base and tower top DELs, power mean ' ...
     'and standard deviation (mean of the ratios of the single wind speeds), and actuator power (ratio of the mean ' ...
     'actuator powers). The first verification set has no wind field for 13\\,m/s.}\n']);
-p('    \\begin{tabular}{@{}l*{7}{c}@{}}\n        \\toprule\n');
+p('    \\begin{tabular}{@{}l*{8}{c}@{}}\n        \\toprule\n');
 p(['        Wind speeds & Dataset & Turb. class & $C_{\\text{DEL},b}$ & $C_{\\text{DEL},t,\\text{Base}}$ & ' ...
-    '$C_{\\bar{P}}$ & $C_{\\delta P}$ & $C_{\\text{Act}}$ \\\\\n        \\midrule\n']);
+    '$C_{\\text{DEL},t,\\text{Top}}$ & $C_{\\bar{P}}$ & $C_{\\delta P}$ & $C_{\\text{Act}}$ \\\\\n        \\midrule\n']);
 for k = 1:height(Tab)
     if k > 1 && Tab.Range(k) ~= Tab.Range(k-1), p('        \\midrule\n'); end
     if k == 1 || Tab.Range(k) ~= Tab.Range(k-1)
@@ -83,10 +85,20 @@ for k = 1:height(Tab)
     else
         rng = '';
     end
-    p('        %s & %s & %s & %.2f & %.2f & %.2f & %.2f & %.2f \\\\\n', rng, Tab.Dataset(k), Tab.TurbClass(k), ...
-        Tab.C_DEL_b(k), Tab.C_DEL_t(k), Tab.C_P(k), Tab.C_dP(k), Tab.C_Act(k));
+    p('        %s & %s & %s & %.2f & %.2f & %.2f & %.2f & %.2f & %.2f \\\\\n', rng, Tab.Dataset(k), Tab.TurbClass(k), ...
+        Tab.C_DEL_b(k), Tab.C_DEL_t(k), Tab.C_DEL_tt(k), Tab.C_P(k), Tab.C_dP(k), Tab.C_Act(k));
 end
 p('        \\bottomrule\n    \\end{tabular}\n\\end{table}\n');
+end
+
+function D = delChannel(ts, name, m)
+% DEL of the channel name in the evaluation window t >= 66 s, Woehler exponent m
+% (as optimizeIPC_PI_RateLimits: 1 Hz equivalent frequency, half cycles count 0.5)
+OutList = strtrim(string(ts.OutList));
+t = ts.OutData(:, OutList == "Time");
+idx = t >= 66;
+c = rainflow(ts.OutData(idx, OutList == name));
+D = (sum(c(:, 1) .* c(:, 2).^m) / (t(find(idx, 1, 'last')) - t(find(idx, 1))))^(1/m);
 end
 
 function s = stdPower(ts)
