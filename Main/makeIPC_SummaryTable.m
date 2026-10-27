@@ -11,9 +11,12 @@ function Tab = makeIPC_SummaryTable(tStart)
 %
 %   Criteria (ratio to the baseline, < 1 = reduction), as
 %   makeAALC_SummaryTable:
-%   - C_DEL_b (worst of the three blade root DELs), C_DEL_t (tower base
-%     DEL), C_DEL_tt (tower top fore-aft DEL, YawBrMyp, Woehler exponent 3
-%     as the tower base, t >= tStart), C_P (mean power), C_dP (std power,
+%   - C_DEL_b (sum of the three blade root DELs RootMyc1..3, Woehler
+%     exponent 10), C_DEL_t (tower base DEL TwrBsMyt) and C_DEL_tt (tower
+%     top fore-aft DEL YawBrMyp), both Woehler exponent 4, as in the thesis
+%     and runParetoVerif2 of the qLMPC repository (the IPC optimization
+%     uses 8 for the worst blade and 3 for the tower), DELs from the time
+%     series, t >= tStart; C_P (mean power), C_dP (std power,
 %     t >= tStart): mean of the ratios of the single wind speeds
 %   - C_Act: actuator power as in the thesis (Eq. CAct_calc): mean over the
 %     blades and time of |pitch rate * pitch moment RootMzb|, t >= tStart;
@@ -29,6 +32,8 @@ function Tab = makeIPC_SummaryTable(tStart)
 if nargin < 1 || isempty(tStart), tStart = 60; end
 sfx = ''; % folder suffix of the runs with the output from tStart
 if tStart ~= 66, sfx = sprintf('_T%02d', tStart); end
+mBlade = 10; % Woehler exponents: blades (GFRP) and tower (steel)
+mTower = 4;
 pp = fullfile(pwd, 'Post_processing');
 fadeIn = fullfile(pwd, 'Results_IPC_PI_RateLimitOpt', 'FadeIn');
 sets = struct('name', {'Optim.', 'Verif. 1', 'Verif. 2'}, 'turb', {'A', 'A', 'B'}, ...
@@ -47,11 +52,11 @@ for r = 1:numel(ranges)
             folder = fullfile(pp, ['IPCcheck_fixedRL08_' sets(s).windSet sfx], sprintf('%02dmps', ws(k)));
             R = load(fullfile(folder, 'Results.mat'), 'Results');
             x = R.Results(1);
-            blade(k) = 1 + max(x.RelChange.RootMyc);
-            tower(k) = 1 + x.RelChange.TwrBsMyt;
             pMean(k) = 1 + x.RelChange.Power;
             S = load(fullfile(folder, 'TimeSeries_RL08.mat'), 'TimeSeries');
-            towerTop(k) = delChannel(S.TimeSeries.Optimum, "YawBrMyp", 3, tStart)/delChannel(S.TimeSeries.Baseline, "YawBrMyp", 3, tStart);
+            blade(k) = delBlades(S.TimeSeries.Optimum, mBlade, tStart)/delBlades(S.TimeSeries.Baseline, mBlade, tStart);
+            tower(k) = delChannel(S.TimeSeries.Optimum, "TwrBsMyt", mTower, tStart)/delChannel(S.TimeSeries.Baseline, "TwrBsMyt", mTower, tStart);
+            towerTop(k) = delChannel(S.TimeSeries.Optimum, "YawBrMyp", mTower, tStart)/delChannel(S.TimeSeries.Baseline, "YawBrMyp", mTower, tStart);
             pStd(k) = stdPower(S.TimeSeries.Optimum, tStart)/stdPower(S.TimeSeries.Baseline, tStart);
             actO(k) = actuatorPower(S.TimeSeries.Optimum, tStart);
             actB(k) = actuatorPower(S.TimeSeries.Baseline, tStart);
@@ -78,7 +83,7 @@ p(['    \\caption[Wind turbine evaluation criteria for IPC: Mean values of the o
     'over the above rated wind speeds]{\\label{tab:IPC_summary} Wind turbine evaluation criteria for IPC: Mean values ' ...
     'of the optimization and verification datasets over the above rated wind speed ranges, normalized by the baseline ' ...
     'without IPC. IPC gains optimized at 18\\,m/s with the pitch rate limit 8\\textdegree/s for all wind speeds: ' ...
-    '$K_{P,\\text{IPC}} = 1.222$ and $K_{I,\\text{IPC}} = 0.370$. Criteria are blade, tower base and tower top DELs, power mean ' ...
+    '$K_{P,\\text{IPC}} = 1.222$ and $K_{I,\\text{IPC}} = 0.370$. Criteria are blade (sum of the three blades, W\\"ohler exponent 10), tower base and tower top DELs (W\\"ohler exponent 4), power mean ' ...
     'and standard deviation (mean of the ratios of the single wind speeds), and actuator power (ratio of the mean ' ...
     'actuator powers). The first verification set has no wind field for 13\\,m/s.}\n']);
 p('    \\begin{tabular}{@{}l*{8}{c}@{}}\n        \\toprule\n');
@@ -105,6 +110,14 @@ t = ts.OutData(:, OutList == "Time");
 idx = t >= tStart;
 c = rainflow(ts.OutData(idx, OutList == name));
 D = (sum(c(:, 1) .* c(:, 2).^m) / (t(find(idx, 1, 'last')) - t(find(idx, 1))))^(1/m);
+end
+
+function D = delBlades(ts, m, tStart)
+% Sum of the DELs of the three blade root out-of-plane moments RootMyc1..3
+D = 0;
+for b = 1:3
+    D = D + delChannel(ts, "RootMyc" + b, m, tStart);
+end
 end
 
 function s = stdPower(ts, tStart)
