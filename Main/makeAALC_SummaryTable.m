@@ -12,8 +12,9 @@ function Tab = makeAALC_SummaryTable()
 %
 %   Criteria (ratio to the baseline, < 1 = reduction):
 %   - C_DEL_b (worst of the three blade root DELs), C_DEL_t (tower base
-%     DEL), C_P (mean power), C_dP (std power, t >= 66 s): mean of the
-%     ratios of the single wind speeds
+%     DEL), C_DEL_tt (tower top fore-aft DEL, YawBrMyp, Woehler exponent 3
+%     as the tower base, t >= 66 s), C_P (mean power), C_dP (std power,
+%     t >= 66 s): mean of the ratios of the single wind speeds
 %   - C_Act: actuator power as in the thesis (Eq. CAct_calc, as
 %     calculateEvalCriteria of the qLMPC repository): mean over the blades
 %     and time of |pitch rate * pitch moment RootMzb|, t >= 66 s; ratio of
@@ -38,7 +39,7 @@ for r = 1:numel(ranges)
     for s = 1:numel(sets)
         ws = sets(s).ws(sets(s).ws >= ranges(r).lim(1) & sets(s).ws <= ranges(r).lim(2));
         n = numel(ws);
-        [blade, tower, pMean, pStd, actO, actB] = deal(nan(n, 1));
+        [blade, tower, towerTop, pMean, pStd, actO, actB] = deal(nan(n, 1));
         for k = 1:n
             if ws(k) < 10
                 name = sprintf('AALCbelow_%02dmps_%s', ws(k), sets(s).windSet);
@@ -52,6 +53,7 @@ for r = 1:numel(ranges)
             tower(k) = 1 + x.RelChange.TwrBsMyt;
             pMean(k) = 1 + x.RelChange.Power;
             S = load(fullfile(folder, 'TimeSeries_RL08.mat'), 'TimeSeries');
+            towerTop(k) = delChannel(S.TimeSeries.Optimum, "YawBrMyp", 3)/delChannel(S.TimeSeries.Baseline, "YawBrMyp", 3);
             pStd(k) = stdPower(S.TimeSeries.Optimum)/stdPower(S.TimeSeries.Baseline);
             actO(k) = actuatorPower(S.TimeSeries.Optimum);
             actB(k) = actuatorPower(S.TimeSeries.Baseline);
@@ -59,11 +61,11 @@ for r = 1:numel(ranges)
         cAct = sum(actO)/sum(actB);
         if ranges(r).lim(2) < 12, cAct = NaN; end                         % baseline actuator power close to 0
         rows(end+1, :) = {string(ranges(r).name), string(sets(s).name), string(sets(s).turb), ...
-            string(mat2str(ws)), mean(blade), mean(tower), mean(pMean), mean(pStd), cAct}; %#ok<AGROW>
+            string(mat2str(ws)), mean(blade), mean(tower), mean(towerTop), mean(pMean), mean(pStd), cAct}; %#ok<AGROW>
     end
 end
 Tab = cell2table(rows, 'VariableNames', {'Range', 'Dataset', 'TurbClass', 'WindSpeeds_mps', ...
-    'C_DEL_b', 'C_DEL_t', 'C_P', 'C_dP', 'C_Act'});
+    'C_DEL_b', 'C_DEL_t', 'C_DEL_tt', 'C_P', 'C_dP', 'C_Act'});
 disp(Tab);
 writetable(Tab, fullfile(fadeIn, 'AALC_SummaryTable.csv'));
 save(fullfile(fadeIn, 'AALC_SummaryTable.mat'), 'Tab');
@@ -81,14 +83,14 @@ p(['    \\caption[Wind turbine evaluation criteria for AALC: Mean values of the 
     'optimization and verification datasets over different wind speed ranges, normalized by the baseline without AALC. ' ...
     'From 10\\,m/s on, the AALC gains optimized at 18\\,m/s are used: $K_{P,\\text{IPC}} = 0.082$, ' ...
     '$K_{I,\\text{IPC}} = 0.669$ and $K_{P,\\text{TEFC}} = 0.641$; below, the gains are scheduled with the gains ' ...
-    'optimized at 4, 6 and 8\\,m/s. Criteria are tower base and blade DELs, power mean and standard deviation ' ...
+    'optimized at 4, 6 and 8\\,m/s. Criteria are blade, tower base and tower top DELs, power mean and standard deviation ' ...
     '(mean of the ratios of the single wind speeds), and actuator power (ratio of the mean actuator powers, ' ...
     'since the baseline pitch is constant at low wind speeds; not given below rated, where the baseline ' ...
     'actuator power is close to zero). The first verification set has no wind ' ...
     'fields for 11 and 13\\,m/s.}\n']);
-p('    \\begin{tabular}{@{}l*{7}{c}@{}}\n        \\toprule\n');
+p('    \\begin{tabular}{@{}l*{8}{c}@{}}\n        \\toprule\n');
 p(['        Wind speeds & Dataset & Turb. class & $C_{\\text{DEL},b}$ & $C_{\\text{DEL},t,\\text{Base}}$ & ' ...
-    '$C_{\\bar{P}}$ & $C_{\\delta P}$ & $C_{\\text{Act}}$ \\\\\n        \\midrule\n']);
+    '$C_{\\text{DEL},t,\\text{Top}}$ & $C_{\\bar{P}}$ & $C_{\\delta P}$ & $C_{\\text{Act}}$ \\\\\n        \\midrule\n']);
 for k = 1:height(Tab)
     if k > 1 && Tab.Range(k) ~= Tab.Range(k-1), p('        \\midrule\n'); end
     if k == 1 || Tab.Range(k) ~= Tab.Range(k-1)
@@ -97,10 +99,20 @@ for k = 1:height(Tab)
         rng = '';
     end
     if isnan(Tab.C_Act(k)), act = '--'; else, act = sprintf('%.2f', Tab.C_Act(k)); end
-    p('        %s & %s & %s & %.2f & %.2f & %.2f & %.2f & %s \\\\\n', rng, Tab.Dataset(k), Tab.TurbClass(k), ...
-        Tab.C_DEL_b(k), Tab.C_DEL_t(k), Tab.C_P(k), Tab.C_dP(k), act);
+    p('        %s & %s & %s & %.2f & %.2f & %.2f & %.2f & %.2f & %s \\\\\n', rng, Tab.Dataset(k), Tab.TurbClass(k), ...
+        Tab.C_DEL_b(k), Tab.C_DEL_t(k), Tab.C_DEL_tt(k), Tab.C_P(k), Tab.C_dP(k), act);
 end
 p('        \\bottomrule\n    \\end{tabular}\n\\end{table}\n');
+end
+
+function D = delChannel(ts, name, m)
+% DEL of the channel name in the evaluation window t >= 66 s, Woehler exponent m
+% (as optimizeIPC_PI_RateLimits: 1 Hz equivalent frequency, half cycles count 0.5)
+OutList = strtrim(string(ts.OutList));
+t = ts.OutData(:, OutList == "Time");
+idx = t >= 66;
+c = rainflow(ts.OutData(idx, OutList == name));
+D = (sum(c(:, 1) .* c(:, 2).^m) / (t(find(idx, 1, 'last')) - t(find(idx, 1))))^(1/m);
 end
 
 function s = stdPower(ts)
