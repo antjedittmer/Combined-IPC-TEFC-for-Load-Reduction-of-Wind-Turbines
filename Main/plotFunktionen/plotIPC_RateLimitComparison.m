@@ -273,7 +273,7 @@ xlabel(ax(end), 'Time (s)');
 posDefault = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
-printFig(gcf, fnOut);
+printFig(gcf, fnOut, [14.8 25.6]); % 560 x 966 px at 96 dpi
 end
 
 function plotPSDcomparison(base, ipc, cases, tStart, fnOut)
@@ -378,14 +378,20 @@ for n = 1:2
 end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
 set(hPk, 'FontSize', 12);
-printFig(gcf, fnOut);
+printFig(gcf, fnOut, [14.8 10.0]); % 560 x 378 px at 96 dpi
 end
 
-function printFig(h, fnOut)
-% Save the figure as .png and .eps under all names in fnOut
+function printFig(h, fnOut, sizeCm)
+% Save the figure as vector .eps and 300 dpi .png under all names in fnOut
+% with the fixed size sizeCm = [width height] in cm, independent of the
+% screen: the output is laid out for the paper size (not the window, which
+% Windows shrinks to the screen), the eps bounding box is the full paper
+% size (-loose), and -painters avoids that MATLAB embeds a bitmap.
+set(h, 'PaperUnits', 'centimeters', 'PaperPositionMode', 'manual', ...
+    'PaperSize', sizeCm, 'PaperPosition', [0 0 sizeCm]);
 for k = 1:numel(fnOut)
-    print(h, fnOut{k}, '-dpng', '-r150');
-    print(h, fnOut{k}, '-depsc');
+    print(h, fnOut{k}, '-dpng', '-r300');
+    print(h, fnOut{k}, '-depsc', '-painters', '-loose');
 end
 end
 

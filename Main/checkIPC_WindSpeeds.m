@@ -23,6 +23,8 @@ function Summary = checkIPC_WindSpeeds(opts)
 %     GainScheduling IPC gain scheduling (see optimizeIPC_PI_RateLimits),
 %                    default [] (none)
 %     Name           name of the run (default "fixedRL08_" + WindSet)
+%     TStartLog      start of the FAST output and of the evaluation window
+%                    in s (default 66, as in the optimization)
 %
 %   Results: simulations in Main/Post_processing/IPCcheck_<Name>/<ws>mps
 %   (git-ignored, with time series), summary in
@@ -41,6 +43,7 @@ def.RateLimit      = 8;
 def.GainScheduling = [];
 def.Vars           = "IPC";
 def.Name           = "";
+def.TStartLog      = 66;
 fn = fieldnames(def);
 for k = 1:numel(fn)
     if ~isfield(opts, fn{k}), opts.(fn{k}) = def.(fn{k}); end
@@ -68,7 +71,8 @@ for w = 1:nW
             opts.Name, ws, mat2str(opts.Gains, 5), opts.RateLimit);
         optimizeIPC_PI_RateLimits(struct('RateLimits', opts.RateLimit, 'Optimizer', "none", 'Vars', opts.Vars, ...
             'x0', opts.Gains, 'WindFile', fullfile("WindData", "Eigene_Wind_Dateien", opts.WindSet, sprintf("%dmps.bts", ws)), ...
-            'GainScheduling', opts.GainScheduling, 'SaveTimeSeries', true, 'ResultsFolder', folder));
+            'GainScheduling', opts.GainScheduling, 'SaveTimeSeries', true, 'ResultsFolder', folder, ...
+            'TStartLog', opts.TStartLog));
     end
     R = load(fRes, 'Results');
     r = R.Results(1);
