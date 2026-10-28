@@ -84,8 +84,7 @@ image(FG,'xdata',[0 1],'ydata',[0 1])
 set(gca,'XColor', 'none','YColor','none')
 
 filenamepng = 'fig01_RE';
-print(gcf,fullfile(dirFig,filenamepng), '-dpng');
-print(gcf,fullfile(dirFig,filenamepng), '-depsc');
+printFigureFixedWidth(gcf, fullfile(dirFig,filenamepng)); % width 14.82 cm (standard figure)
 
 
 %% Plot 2 (with 3D contours)
@@ -121,8 +120,7 @@ image(FG,'xdata',[0 1],'ydata',[0 1])
 set(gca,'XColor', 'none','YColor','none')
 
 filenamepng = 'fig01_RE1';
-print(gcf,fullfile(dirFig,filenamepng), '-dpng');
-print(gcf,fullfile(dirFig,filenamepng), '-depsc');
+printFigureFixedWidth(gcf, fullfile(dirFig,filenamepng)); % width 14.82 cm (standard figure)
 
 nF = nf.Number;
 

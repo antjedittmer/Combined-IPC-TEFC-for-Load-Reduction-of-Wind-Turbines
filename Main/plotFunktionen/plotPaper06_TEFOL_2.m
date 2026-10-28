@@ -157,8 +157,7 @@ filenamepng = ['fig06_TEFOL_',num2str(idxFig-nF)];
 
 filepathpng = fullfile(dirFig,filenamepng);
 
-print(gcf,filepathpng, '-dpng');
-print(gcf,filepathpng, '-depsc');
+printFigureFixedWidth(gcf, filepathpng); % width 14.82 cm (standard figure)
 
 end
 

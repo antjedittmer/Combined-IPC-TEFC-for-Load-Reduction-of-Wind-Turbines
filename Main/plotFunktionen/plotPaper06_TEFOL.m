@@ -129,8 +129,7 @@ filenamepng = 'fig06_TEFOL';
 
 filepathpng = fullfile(dirFig,filenamepng);
 
-print(gcf,filepathpng, '-dpng');
-print(gcf,filepathpng, '-depsc');
+printFigureFixedWidth(gcf, filepathpng); % width 14.82 cm (standard figure)
 nF = nf.Number;   
 
 

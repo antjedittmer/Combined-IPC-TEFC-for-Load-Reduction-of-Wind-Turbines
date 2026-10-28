@@ -133,8 +133,7 @@ for idxL = 1:3
 
     set(gca,'Xtick',-maxA:10:maxA)
 
-    print(gcf,fullfile(dirFig,filenamepng), '-dpng');
-    print(gcf,fullfile(dirFig,filenamepng), '-depsc');
+    printFigureFixedWidth(gcf, fullfile(dirFig,filenamepng)); % width 14.82 cm (standard figure)
 end
 
 nF = nf.Number;
