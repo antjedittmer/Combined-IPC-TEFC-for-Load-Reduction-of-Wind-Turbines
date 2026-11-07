@@ -204,7 +204,8 @@ tb = base.Time(ib);
 ti = ipc.Time(ii);
 figure(100 + figNo); clf;
 set(gcf, 'Name', sprintf('Baseline vs. IPC, rate limit %d deg/s', c.rl), 'NumberTitle', 'off');
-tiledlayout(numel(yAx), 1, 'TileSpacing', 'Compact');
+% Small, equal gaps between the tiles (tightenTiles below: x tick labels only on the bottom tile)
+tiledlayout(numel(yAx), 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 ax = gobjects(numel(yAx), 1);
 for k = 1:numel(yAx)
     ax(k) = nexttile; hold on; grid on; box on;
@@ -270,6 +271,7 @@ ylim(ax(2), [0.9*min(tq), 1.1*max(tq)]);
 end
 
 xlabel(ax(end), 'Time (s)');
+tightenTiles(ax); % x tick labels only at the bottom, no y tick labels at the limits
 posDefault = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
