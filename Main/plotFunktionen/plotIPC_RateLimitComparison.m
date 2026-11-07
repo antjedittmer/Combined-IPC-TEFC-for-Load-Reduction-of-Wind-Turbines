@@ -1,6 +1,6 @@
-function plotIPC_RateLimitComparison(figDir, dataSet)
+function plotIPC_RateLimitComparison(figDir, dataSet, plotAll)
 %PLOTIPC_RATELIMITCOMPARISON Time series and PSD plots of the optimized PI-IPC
-%   plotIPC_RateLimitComparison(figDir, dataSet) plots the optimized PI-IPC
+%   plotIPC_RateLimitComparison(figDir, dataSet, plotAll) plots the optimized PI-IPC
 %   at the pitch rate limits 4, 8 and 13 deg/s from the time series stored
 %   in the repository (25 channels, option 'SaveTimeSeries' of
 %   optimizeIPC_PI_RateLimits), no simulation needed. dataSet:
@@ -29,19 +29,28 @@ function plotIPC_RateLimitComparison(figDir, dataSet)
 %     red, yellow for the three blades) for 4, 8 and 13 deg/s
 %   - fig02_PSDroot_ratecomp[_fadeIn]: PSD of the blade 1 root out-of-plane moment
 %     (RootMyc1), baseline (black), IPC 4 (blue), 8 (red), 13 deg/s (yellow)
-%   - fig02_PSDroot_breaky_IPC[_fadeIn] (and for "fadeIn"
-%     fig02_PSDroot_breaky_RL08_IPCTEF_fadeIn): paper-style PSD figures of
-%     plotIPC_PSD_Paper
+%   - only with plotAll = true: fig02_PSDroot_breaky_IPC[_fadeIn] (and for
+%     "fadeIn" fig02_PSDroot_breaky_RL08_IPCTEF_fadeIn): paper-style PSD
+%     figures of plotIPC_PSD_Paper
 %   The 1P/2P peak reductions and the standard deviations are printed.
 %
 %   For "fadeIn" (current values for the thesis), the time series and the
 %   PSD are also stored in plotFunktionen/figIPCThesis as
 %   fig00a_Timeseries1/2/3 (4, 8, 13 deg/s) and fig02_PSDroot_breaky_ratecomp
 %   (.eps and .png), together with tab_stddev_unified_IPC.tex, the table
-%   tab:stddev_unified_IPC of the thesis (Section 4.2) with these values.
+%   tab:stddev_unified_IPC of the thesis (Section 4.2) with these values,
+%   and the two AALC PSD comparisons of plotAALC_PSD_comparison
+%   (fig02_PSDroot_breaky_AALCinit, fig02_PSDroot_breaky1c_AALC).
+%
+%   plotAll (default false): true also creates the paper-style PSD figures
+%   of plotIPC_PSD_Paper listed above.
+%   All font sizes are 12.
 %
 %   No simulation and no Post_processing folder needed.
 
+if nargin < 3 || isempty(plotAll)
+    plotAll = false;
+end
 if nargin < 2 || isempty(dataSet)
     dataSet = "fadeIn";
 end
@@ -54,7 +63,9 @@ if string(dataSet) == "fadeIn"
     thesisDir = fullfile(fileparts(mfilename('fullpath')), 'figIPCThesis');
     if ~isfolder(thesisDir), mkdir(thesisDir); end
 end
-addpath(fullfile(fileparts(mfilename('fullpath')), 'breakyaxis'));
+if exist('breakyaxis.m','file') ~= 2
+    addpath(fullfile(fileparts(mfilename('fullpath')), 'breakyaxis'));
+end
 
 resDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'Results_IPC_PI_RateLimitOpt');
 switch string(dataSet)
@@ -99,8 +110,15 @@ fn = {fullfile(figDir, ['fig02_PSDroot_ratecomp', figSuffix])};
 if ~isempty(thesisDir), fn{end+1} = fullfile(thesisDir, 'fig02_PSDroot_breaky_ratecomp'); end
 plotPSDcomparison(base, ipc, cases, tStart, fn);
 
-%% Paper-style PSD figures (plotIPC_PSD_Paper)
-if string(dataSet) == "fadeIn"
+%% AALC PSD comparisons (thesis)
+if ~isempty(thesisDir)
+    plotAALC_PSD_comparison(thesisDir);
+end
+
+%% Paper-style PSD figures (plotIPC_PSD_Paper), only with plotAll
+if ~plotAll
+    % no further figures
+elseif string(dataSet) == "fadeIn"
     plotIPC_PSD_Paper(struct('FigDir', figDir, 'FigNames', ...
         ["fig02_PSDroot_breaky_IPC", "fig02_PSDroot_breaky_RL08_IPCTEF"] + figSuffix));
 else
@@ -274,7 +292,7 @@ xlabel(ax(end), 'Time (s)');
 tightenTiles(ax); % x tick labels only at the bottom, no y tick labels at the limits
 posDefault = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
-set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', 12);
 printFig(gcf, fnOut, [14.8 25.6]); % 560 x 966 px at 96 dpi
 end
 
@@ -302,6 +320,7 @@ for k = 1:numel(ipc)
         pk(1), 100*(pk(1)/pb(1) - 1), pk(2), 100*(pk(2)/pb(2) - 1));
 end
 
+fs = 12;                                                                   % all font sizes
 cl = {'k', [0 0.4470 0.7410], [0.8500 0.3250 0.0980], [0.9290 0.6940 0.1250]};
 lsIPC = {'-.', '-', ':'};                                                  % IPC 4 (blue), 8 (red), 13 deg/s (yellow)
 lwIPC = [1, 1, 1.3];
@@ -329,22 +348,25 @@ yl = ylim;
 ylim([0, 1.02*yl(2)]);
 % Upper pane from 0.85 times the baseline 1P peak (as plotIPC_PSD_Paper)
 yHigh = 0.85*pb(1);
-% Axes slightly to the right and y label further left, so that the label
-% does not cover the tick labels of the lower pane
-pos = get(gca, 'Position');
-set(gca, 'Position', [pos(1) + 0.021, pos(2), pos(3) - 0.021, pos(4)]);
+% Title and font size 12 before the split: breakyaxis copies the axes (the
+% title and the labels stay on its annotation axes), and the axes are
+% fitted to the figure with the labels at 12 pt (lower axis moved up, so
+% that the x label is not cut off)
+title(titleStr, 'FontWeight', 'bold');
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', fs);
+fitAxes(gca, 0.025);
+% y label further left, so that it does not cover the tick labels of the
+% lower pane (exponent 7 instead of the 8 of the full axis)
 hYl = get(gca, 'YLabel');
 set(hYl, 'Units', 'normalized');
-set(hYl, 'Position', [hYl.Position(1) + 0.7*(-0.12 - hYl.Position(1)), 0.5, 0]);
+set(hYl, 'Position', [hYl.Position(1) - 0.02, 0.5, 0]);
 if yHigh > 1.5*yLow
     [~, br] = evalc('breakyaxis([yLow, yHigh])');                         % breakyaxis prints an axes
-    title(br.highAxes, titleStr, 'FontWeight', 'bold');
     axPanes = [br.lowAxes, br.highAxes];
     % Lower pane: ticks every 10^7 up to the split, labelled as x10^7
     br.lowAxes.YTick = 0:1e7:yLow;
     br.lowAxes.YAxis.Exponent = 7;
 else
-    title(titleStr, 'FontWeight', 'bold');
     axPanes = gca;
 end
 hPk = gobjects(0);                                                         % peak value texts
@@ -364,7 +386,7 @@ ylT = get(axTxt, 'YLim');
 for n = 1:2
     iN = find(f >= 0.85*n*f1P & f <= 1.15*n*f1P);
     hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
-        'Color', [0.3 0.3 0.3], 'FontSize', 10); %#ok<AGROW>
+        'Color', [0.3 0.3 0.3], 'FontSize', fs); %#ok<AGROW>
     i = 0;
     for r = 1:numel(Pall)
         [pv, i1] = max(Pall{r}(iN));
@@ -375,12 +397,21 @@ for n = 1:2
         i = i + 1;
         plot(axTxt, f(iN(i1)), pv, 'o', 'Color', cl{r}, 'MarkerSize', 5, 'LineWidth', 1);
         hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - (0.08 + 0.11*i)*diff(ylT), sprintf('%2.2e', pv), ...
-            'Color', cl{r}, 'FontSize', 10); %#ok<AGROW>
+            'Color', cl{r}, 'FontSize', fs); %#ok<AGROW>
     end
 end
-set(findall(gcf, '-property', 'FontSize'), 'FontSize', 11);
-set(hPk, 'FontSize', 12);
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', fs);
 printFig(gcf, fnOut, [14.8 10.0]); % 560 x 378 px at 96 dpi
+end
+
+function fitAxes(ax, pad)
+% Inner axes position so that the tick labels, the axis labels and the
+% title (TightInset) just fit into the figure, with the margin pad
+% (normalized); fixed afterwards (breakyaxis copies this position)
+drawnow;
+set(ax, 'Units', 'normalized');
+ti = get(ax, 'TightInset');
+set(ax, 'Position', [ti(1) + pad, ti(2) + pad, 1 - ti(1) - ti(3) - 2*pad, 1 - ti(2) - ti(4) - 2*pad]);
 end
 
 function printFig(h, fnOut, sizeCm)

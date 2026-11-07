@@ -22,16 +22,17 @@ function plotIPC_PSD_Paper(opts)
 %                  (default {[1 2 3], 4}); up to 4 controllers per group
 %     BaselineRate rate limit of the baseline in deg/s (default 8)
 %     Channel      FAST channel (default RootMyc1)
-%     YLabel       y axis label (default PSD Bl1 MOoP, blade 1 root out-of-plane moment)
+%     YLabel       y axis label (default PSD Bl1 MOoP (kNm^2/Hz), blade 1 root
+%                  out-of-plane moment)
 %     FMax         upper frequency in Hz (default 0.7)
 %     TStart       start of the evaluation window in s (default 66)
 %     FigDir       output folder (default plotFunktionen/figIPC_RateLimits)
 %     FigNames     file names, one per group (default
 %                  fig02_PSDroot_breaky_<file suffixes>)
-%     mP           figure height relative to the default (default 0.65)
+%     mP           figure height relative to the default (default 0.9)
 %     mW           figure width relative to the default (default 1)
 %     BaselineLabel title of the baseline (default "Baseline <rate>°/s")
-%     FontSizeNum  font size of the tick labels and peak values (default 10)
+%     FontSizeNum  font size of the tick labels and peak values (default 12)
 %     YSplit       y values [low, high] of the axis split, one per group
 %                  (cell array); [] or missing: automatic, only if the
 %                  baseline 1P peak is 1.5 times above the other values
@@ -66,15 +67,15 @@ def.Labels       = ["IPC 4°/s", "IPC 8°/s", "IPC 13°/s", "IPC + TEFC 8°/s"];
 def.Groups       = {[1 2 3], 4};
 def.BaselineRate = 8;
 def.Channel      = "RootMyc1";
-def.YLabel       = {'PSD Bl1 MOoP,' 'kNm^2/Hz'};
+def.YLabel       = 'PSD Bl1 MOoP (kNm^2/Hz)';
 def.FMax         = 0.7;
 def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigNames     = [];
-def.mP           = 0.65;
+def.mP           = 0.9;
 def.mW           = 1;
 def.BaselineLabel = "";
-def.FontSizeNum  = 10;
+def.FontSizeNum  = 12;
 def.YSplit       = {};
 def.PSDFile      = "";
 def.StyleIdx     = [];
@@ -169,7 +170,7 @@ for g = 1:numel(groups)
         plot(f, Y{j+1}, ls{st(j)}, 'Color', cl{st(j)}, 'LineWidth', lw);
     end
     axis tight; grid on;
-    xlabel('Frequency, Hz', 'FontSize', fs);
+    xlabel('Frequency (Hz)', 'FontSize', fs);
     ylabel(opts.YLabel, 'FontSize', fs);
     yl = ylim;
     ylim([yl(1), yl(2) + 0.01*(yl(2) - yl(1))]);
@@ -189,12 +190,16 @@ for g = 1:numel(groups)
         yLow = opts.YSplit{g}(1); yHigh = opts.YSplit{g}(2);
         doSplit = true;
     end
+    % Title and font sizes before the split: breakyaxis copies the axes (the
+    % title and the labels stay on its annotation axes), and the axes are
+    % fitted to the figure with these font sizes (lower axis moved up, so
+    % that the labels are not cut off)
+    set(gca, 'FontSize', fsN);
+    title(titleStr, 'FontSize', fs);
+    set([get(gca, 'XLabel'), get(gca, 'YLabel')], 'FontSize', fs);
+    fitAxes(gca, 0.02);
     if doSplit
         [~, br] = evalc('breakyaxis([yLow, yHigh])');                     % breakyaxis prints an axes
-        br.highAxes.Title.String = titleStr;
-        br.highAxes.Title.FontSize = fs;
-        br.highAxes.FontSize = fsN;
-        br.lowAxes.FontSize = fsN;
         if numel(opts.YSplit) >= g && ~isempty(opts.YSplit{g})
             set([br.lowAxes, br.highAxes], 'YTickMode', 'auto');           % ticks of the given split
             t = get(br.highAxes, 'YTick');
@@ -205,8 +210,6 @@ for g = 1:numel(groups)
         end
         axPanes = [br.lowAxes, br.highAxes];
     else
-        set(gca, 'FontSize', fsN);
-        title(titleStr, 'FontSize', fs);
         axPanes = gca;
     end
 
@@ -244,6 +247,16 @@ for g = 1:numel(groups)
     print(nf, fnFig, '-dpng');
     print(nf, fnFig, '-depsc');
 end
+end
+
+function fitAxes(ax, pad)
+% Inner axes position so that the tick labels, the axis labels and the
+% title (TightInset) just fit into the figure, with the margin pad
+% (normalized); fixed afterwards (breakyaxis copies this position)
+drawnow;
+set(ax, 'Units', 'normalized');
+ti = get(ax, 'TightInset');
+set(ax, 'Position', [ti(1) + pad, ti(2) + pad, 1 - ti(1) - ti(3) - 2*pad, 1 - ti(2) - ti(4) - 2*pad]);
 end
 
 function addArrow(axPanes, x, y, str, c, fsN, j)
