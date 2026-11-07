@@ -22,16 +22,20 @@ function plotIPC_PSD_Paper(opts)
 %                  (default {[1 2 3], 4}); up to 4 controllers per group
 %     BaselineRate rate limit of the baseline in deg/s (default 8)
 %     Channel      FAST channel (default RootMyc1)
-%     YLabel       y axis label (default PSD Bl1 MOoP, blade 1 root out-of-plane moment)
+%     YLabel       y axis label (default PSD Bl1 MOoP (kNm^2/Hz), blade 1 root
+%                  out-of-plane moment)
 %     FMax         upper frequency in Hz (default 0.7)
 %     TStart       start of the evaluation window in s (default 66)
 %     FigDir       output folder (default plotFunktionen/figIPC_RateLimits)
 %     FigNames     file names, one per group (default
 %                  fig02_PSDroot_breaky_<file suffixes>)
-%     mP           figure height relative to the default (default 0.65)
-%     mW           figure width relative to the default (default 1)
+%     mP           figure height: 10 cm * mP/0.9 (default 0.9, i.e. 10 cm)
+%     mW           figure width: 14.8 cm * mW (default 1, i.e. 14.8 cm as
+%                  the other thesis figures, so that the fonts of 12 pt
+%                  keep their size when the figures are scaled to the
+%                  same width)
 %     BaselineLabel title of the baseline (default "Baseline <rate>°/s")
-%     FontSizeNum  font size of the tick labels and peak values (default 10)
+%     FontSizeNum  font size of the tick labels and peak values (default 12)
 %     YSplit       y values [low, high] of the axis split, one per group
 %                  (cell array); [] or missing: automatic, only if the
 %                  baseline 1P peak is 1.5 times above the other values
@@ -66,15 +70,15 @@ def.Labels       = ["IPC 4°/s", "IPC 8°/s", "IPC 13°/s", "IPC + TEFC 8°/s"];
 def.Groups       = {[1 2 3], 4};
 def.BaselineRate = 8;
 def.Channel      = "RootMyc1";
-def.YLabel       = {'PSD Bl1 MOoP (kNm^2/Hz)'};
+def.YLabel       = 'PSD Bl1 MOoP (kNm^2/Hz)';
 def.FMax         = 0.7;
 def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigNames     = [];
-def.mP           = 0.95;
+def.mP           = 0.9;
 def.mW           = 1;
 def.BaselineLabel = "";
-def.FontSizeNum  = 10;
+def.FontSizeNum  = 12;
 def.YSplit       = {};
 def.PSDFile      = "";
 def.StyleIdx     = [];
@@ -161,8 +165,12 @@ for g = 1:numel(groups)
 
     % Figure as fig02_PSDroot_breaky
     nf = figure(400 + g); clf;
+    % Window with the size of the printed figure (96 px per inch), so that
+    % the layout (fitted axes, peak labels in pixels) is the printed one
     nfpos = get(0, 'defaultFigurePosition');
-    nf.Position = [nfpos(1:2), nfpos(3)*opts.mW, nfpos(4)*opts.mP];
+    sizeCm = [14.8*opts.mW, 10*opts.mP/0.9];
+    nf.Units = 'pixels';
+    nf.Position = [nfpos(1:2), round(sizeCm*96/2.54)];
     set(nf, 'Name', sprintf('PSD %s: %s', opts.Channel, join(labels(idx), ', ')), 'NumberTitle', 'off');
     plot(f, Y{1}, 'k-', 'LineWidth', lw); hold on;
     for j = 1:nC
@@ -189,12 +197,25 @@ for g = 1:numel(groups)
         yLow = opts.YSplit{g}(1); yHigh = opts.YSplit{g}(2);
         doSplit = true;
     end
+    % Title and font sizes before the split: breakyaxis copies the axes (the
+    % title and the labels stay on its annotation axes), and the axes are
+    % fitted to the figure with these font sizes (lower axis moved up, so
+    % that the labels are not cut off)
+    set(gca, 'FontSize', fsN);
+    title(titleStr, 'FontSize', fs);
+    set([get(gca, 'XLabel'), get(gca, 'YLabel')], 'FontSize', fs);
+    fitAxes(gca, 0.02);
+    % Axes to the right and the y label as far left as before, so that the
+    % label does not touch the tick labels of the split panes (other ticks
+    % than those of the full axis)
+    pos = get(gca, 'Position');
+    dxL = 0.03;
+    set(gca, 'Position', [pos(1) + dxL, pos(2), pos(3) - dxL, pos(4)]);
+    hYl = get(gca, 'YLabel');
+    set(hYl, 'Units', 'normalized');
+    set(hYl, 'Position', [hYl.Position(1) - dxL/(pos(3) - dxL), 0.5, 0]);
     if doSplit
         [~, br] = evalc('breakyaxis([yLow, yHigh])');                     % breakyaxis prints an axes
-        br.highAxes.Title.String = titleStr;
-        br.highAxes.Title.FontSize = fs;
-        br.highAxes.FontSize = fsN;
-        br.lowAxes.FontSize = fsN;
         if numel(opts.YSplit) >= g && ~isempty(opts.YSplit{g})
             set([br.lowAxes, br.highAxes], 'YTickMode', 'auto');           % ticks of the given split
             t = get(br.highAxes, 'YTick');
@@ -205,8 +226,6 @@ for g = 1:numel(groups)
         end
         axPanes = [br.lowAxes, br.highAxes];
     else
-        set(gca, 'FontSize', fsN);
-        title(titleStr, 'FontSize', fs);
         axPanes = gca;
     end
 
@@ -220,35 +239,43 @@ for g = 1:numel(groups)
         end
     else
         % Several controllers: baseline 1P peak as text arrow, the other
-        % peaks marked with circles and their values listed next to 1P and 2P
+        % peaks as filled circles with their values fanned out close to the
+        % peaks, with 45 degree arrows (peakLabels; largest peak first);
+        % headings '1P peaks:' and '2P peaks:' at the top of the lower pane
         addArrow(axPanes, fpk(1,1), pk(1,1), sprintf('%2.2e', pk(1,1)), clAll{1}, fsN, 0);
         axLow = axPanes(1);
         ylL = get(axLow, 'YLim');
         dyL = 0.22*isscalar(axPanes);                                      % no split: below the baseline arrow
+        xk = []; yk = []; ck = {};
         for n = 1:2
             rows = (1 + (n == 1)):(nC + 1);                                % 1P: baseline peak is in the high pane
             [~, iS] = sort(pk(rows, n), 'descend');                        % largest peak on top
             rows = rows(iS);
-            for i = 1:numel(rows)
-                r = rows(i);
-                plot(axLow, fpk(r,n), pk(r,n), 'o', 'Color', clAll{r}, 'MarkerSize', 5, 'LineWidth', lw);
-                text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.19*fsN/10 + 0.11*fsN/10*(i - 1))*diff(ylL), ...
-                    sprintf('%2.2e', pk(r,n)), 'Color', clAll{r}, 'FontSize', fsN);
-            end
+            xk = [xk; fpk(rows,n)]; yk = [yk; pk(rows,n)]; ck = [ck, clAll(rows)]; %#ok<AGROW>
             text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.08)*diff(ylL), ...
                 sprintf('%dP peaks:', n), 'Color', [0.3 0.3 0.3], 'FontSize', fsN);
         end
+        peakLabels(axLow, xk, yk, compose('%2.2e', yk), ck, fsN);          % 1P and 2P together
     end
 
     fnFig = fullfile(opts.FigDir, opts.FigNames(g));
-
-set(findall(gcf,'-property','FontSize'),'FontSize',11.5)
-set(findall(gcf,'-property','LineWidth'),'LineWidth',0.75)
-drawnow;
-
-    print(nf, fnFig, '-dpng');
-    print(nf, fnFig, '-depsc');
+    % Fixed size in cm (independent of the screen), as printFig in
+    % plotIPC_RateLimitComparison
+    set(nf, 'PaperUnits', 'centimeters', 'PaperPositionMode', 'manual', ...
+        'PaperSize', sizeCm, 'PaperPosition', [0 0 sizeCm]);
+    print(nf, fnFig, '-dpng', '-r300');
+    print(nf, fnFig, '-depsc', '-painters', '-loose');
 end
+end
+
+function fitAxes(ax, pad)
+% Inner axes position so that the tick labels, the axis labels and the
+% title (TightInset) just fit into the figure, with the margin pad
+% (normalized); fixed afterwards (breakyaxis copies this position)
+drawnow;
+set(ax, 'Units', 'normalized');
+ti = get(ax, 'TightInset');
+set(ax, 'Position', [ti(1) + pad, ti(2) + pad, 1 - ti(1) - ti(3) - 2*pad, 1 - ti(2) - ti(4) - 2*pad]);
 end
 
 function addArrow(axPanes, x, y, str, c, fsN, j)
