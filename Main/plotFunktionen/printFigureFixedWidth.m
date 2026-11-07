@@ -12,6 +12,13 @@ pos = get(h, 'Position');
 sizeCm = 14.82*[1, pos(4)/pos(3)];
 set(h, 'PaperUnits', 'centimeters', 'PaperPositionMode', 'manual', ...
     'PaperSize', sizeCm, 'PaperPosition', [0 0 sizeCm]);
-print(h, fName, '-depsc', '-painters', '-loose');
+
+if contains(fName,'fig06_TEFOL')
+print(gcf, fName, '-dpdf', '-vector');
+else
+print(h, fName, '-depsc', '-vector', '-loose');
+end
+
+
 print(h, fName, '-dpng', '-r300');
 end

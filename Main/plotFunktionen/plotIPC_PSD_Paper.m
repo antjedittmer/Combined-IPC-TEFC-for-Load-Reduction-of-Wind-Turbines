@@ -66,12 +66,12 @@ def.Labels       = ["IPC 4°/s", "IPC 8°/s", "IPC 13°/s", "IPC + TEFC 8°/s"];
 def.Groups       = {[1 2 3], 4};
 def.BaselineRate = 8;
 def.Channel      = "RootMyc1";
-def.YLabel       = {'PSD Bl1 MOoP,' 'kNm^2/Hz'};
+def.YLabel       = {'PSD Bl1 MOoP (kNm^2/Hz)'};
 def.FMax         = 0.7;
 def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigNames     = [];
-def.mP           = 0.65;
+def.mP           = 0.95;
 def.mW           = 1;
 def.BaselineLabel = "";
 def.FontSizeNum  = 10;
@@ -169,7 +169,7 @@ for g = 1:numel(groups)
         plot(f, Y{j+1}, ls{st(j)}, 'Color', cl{st(j)}, 'LineWidth', lw);
     end
     axis tight; grid on;
-    xlabel('Frequency, Hz', 'FontSize', fs);
+    xlabel('Frequency (Hz)', 'FontSize', fs);
     ylabel(opts.YLabel, 'FontSize', fs);
     yl = ylim;
     ylim([yl(1), yl(2) + 0.01*(yl(2) - yl(1))]);
@@ -241,6 +241,11 @@ for g = 1:numel(groups)
     end
 
     fnFig = fullfile(opts.FigDir, opts.FigNames(g));
+
+set(findall(gcf,'-property','FontSize'),'FontSize',11.5)
+set(findall(gcf,'-property','LineWidth'),'LineWidth',0.75)
+drawnow;
+
     print(nf, fnFig, '-dpng');
     print(nf, fnFig, '-depsc');
 end

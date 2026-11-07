@@ -4,6 +4,7 @@ function nF = plotPaper01_Re(nF)
 if ~nargin
     clc; clear; close all;
     nF = 1; % number of figure
+    useRoundBrackets = 1; % for thesis
 end
 
 dirMain = fileparts(pwd);
@@ -46,8 +47,16 @@ Re(:,2) = Re(:,2)*10^7;
 fs = 12;
 lw = 0.7;
 %xlabelStr = ['Angle of attack \alpha (', s,')']
-xlabelStr = 'Rotor radius, m';
-ylabelStr = 'Reynolds number Re';
+
+if useRoundBrackets == 1
+    xlabelStr = 'Rotor radius (m)';
+    ylabelStr = 'Reynolds No. Re (-)';
+
+else
+    xlabelStr = 'Rotor radius, m';
+    ylabelStr = 'Reynolds number Re';
+
+end
 
 
 
