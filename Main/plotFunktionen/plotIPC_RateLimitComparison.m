@@ -377,29 +377,30 @@ for n = 1:2
     text(axPanes(end), n*f1P - 0.012, ylH(1) + 0.1*diff(ylH), sprintf('%dP', n), ...
         'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom');
 end
-% Baseline 1P peak as text arrow, the other 1P and 2P peaks as circles in
-% the line colours with their values listed in the same colours in the
-% lower pane next to the 1P and 2P lines (as plotIPC_PSD_Paper)
+% Baseline 1P peak as text arrow, the other 1P and 2P peaks as filled
+% circles with their values in the line colours fanned out close to the
+% peaks, with 45 degree arrows (peakLabels, as plotIPC_PSD_Paper); headings
+% '1P peaks:' and '2P peaks:' at the top of the lower pane
 Pall = [{Pb}, P];
 axTxt = axPanes(1);
 ylT = get(axTxt, 'YLim');
+xk = []; yk = []; ck = {};
 for n = 1:2
     iN = find(f >= 0.85*n*f1P & f <= 1.15*n*f1P);
     hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
         'Color', [0.3 0.3 0.3], 'FontSize', fs); %#ok<AGROW>
-    i = 0;
     for r = 1:numel(Pall)
         [pv, i1] = max(Pall{r}(iN));
         if n == 1 && r == 1
             hPk(end+1) = addArrow(axPanes, f(iN(i1)), pv, sprintf('%2.2e', pv), cl{r}); %#ok<AGROW>
             continue
         end
-        i = i + 1;
-        plot(axTxt, f(iN(i1)), pv, 'o', 'Color', cl{r}, 'MarkerSize', 5, 'LineWidth', 1);
-        hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - (0.08 + 0.11*i)*diff(ylT), sprintf('%2.2e', pv), ...
-            'Color', cl{r}, 'FontSize', fs); %#ok<AGROW>
+        xk(end+1) = f(iN(i1)); yk(end+1) = pv; ck{end+1} = cl{r}; %#ok<AGROW>
     end
 end
+% 1P and 2P together, in the order baseline, 4, 8, 13 deg/s: 13 deg/s below
+% and right of 8 deg/s
+peakLabels(axTxt, xk, yk, compose('%2.2e', yk), ck, fs);
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', fs);
 printFig(gcf, fnOut, [14.8 10.0]); % 560 x 378 px at 96 dpi
 end
