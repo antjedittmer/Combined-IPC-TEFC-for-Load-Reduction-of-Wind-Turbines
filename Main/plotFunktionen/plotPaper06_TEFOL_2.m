@@ -102,7 +102,9 @@ for idx = 1:len
             titleStr = ['Open Loop TEF: \color[rgb]{0    0.4470    0.7410}\eta_{ref} = -10^{\circ} ',...
                 '\color{black}\eta_{ref} = 0^{\circ} \color[rgb]{ 0.4940, 0.1840,0.5560}\eta_{ref} = 10^{\circ}'];
         end
-        title(titleStr)
+        if ~isappdata(groot, 'ShowThesisTitle') || getappdata(groot, 'ShowThesisTitle') % title switch of runGenerateAllThesisFigures
+            title(titleStr)
+        end
         % Create textbox
         annotation(nf,'textbox',...
             [0.144 0.793 0.257 0.038],...

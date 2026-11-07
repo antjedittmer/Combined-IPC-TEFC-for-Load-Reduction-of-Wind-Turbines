@@ -273,10 +273,12 @@ plot(ax(idxAx), tb, base.RootMyc1(ib)/1000, 'Color', cCPC);
 plot(ax(idxAx), ti, ipc.RootMyc1(ii)/1000, 'Color', cPitch(1,:));
 % Legend as coloured title (no legends in the plots)
 rgb = @(cc) ['\color[rgb]{', sprintf('%g,%g,%g', cc), '}'];
-title(ax(1), {[rgb(cCPC), 'CPC (8°/s)', '\color{black} vs. ', ...
-        sprintf('IPC PI (K_P = %.4f, K_I = %.4f), %d°/s', c.gains(1), c.gains(2), c.rl)], ...
-    ['\color{black}Pitch IPC: ', rgb(cPitch(1,:)), 'blade 1, ', rgb(cPitch(2,:)), 'blade 2, ', ...
-        rgb(cPitch(3,:)), 'blade 3']}, 'FontWeight', 'bold');
+if ~isappdata(groot, 'ShowThesisTitle') || getappdata(groot, 'ShowThesisTitle') % title switch of runGenerateAllThesisFigures
+    title(ax(1), {[rgb(cCPC), 'CPC (8°/s)', '\color{black} vs. ', ...
+            sprintf('IPC PI (K_P = %.4f, K_I = %.4f), %d°/s', c.gains(1), c.gains(2), c.rl)], ...
+        ['\color{black}Pitch IPC: ', rgb(cPitch(1,:)), 'blade 1, ', rgb(cPitch(2,:)), 'blade 2, ', ...
+            rgb(cPitch(3,:)), 'blade 3']}, 'FontWeight', 'bold');
+end
 linkaxes(ax, 'x'); axis(ax, 'tight');
 % Pitch rate always +-13 deg/s (largest rate limit), ticks at the rate limits
 ylim(axRate, [-13 13]);
@@ -352,7 +354,9 @@ yHigh = 0.85*pb(1);
 % title and the labels stay on its annotation axes), and the axes are
 % fitted to the figure with the labels at 12 pt (lower axis moved up, so
 % that the x label is not cut off)
-title(titleStr, 'FontWeight', 'bold');
+if ~isappdata(groot, 'ShowThesisTitle') || getappdata(groot, 'ShowThesisTitle') % title switch of runGenerateAllThesisFigures
+    title(titleStr, 'FontWeight', 'bold');
+end
 set(findall(gcf, '-property', 'FontSize'), 'FontSize', fs);
 fitAxes(gca, 0.025);
 % y label further left, so that it does not cover the tick labels of the
