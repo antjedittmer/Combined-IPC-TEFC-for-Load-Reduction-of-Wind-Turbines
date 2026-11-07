@@ -202,7 +202,9 @@ for g = 1:numel(groups)
     % fitted to the figure with these font sizes (lower axis moved up, so
     % that the labels are not cut off)
     set(gca, 'FontSize', fsN);
-    title(titleStr, 'FontSize', fs);
+    if ~isappdata(groot, 'ShowThesisTitle') || getappdata(groot, 'ShowThesisTitle') % title switch of runGenerateAllThesisFigures
+        title(titleStr, 'FontSize', fs);
+    end
     set([get(gca, 'XLabel'), get(gca, 'YLabel')], 'FontSize', fs);
     fitAxes(gca, 0.02);
     % Axes to the right and the y label as far left as before, so that the
