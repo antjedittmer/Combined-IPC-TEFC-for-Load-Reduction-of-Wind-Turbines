@@ -98,7 +98,8 @@ for idx = 1:len
             titleStr = ['Open Loop TEF: \color[rgb]{0    0.4470    0.7410}\eta = -10^{\circ} ', ...
                 '\color{black}\eta = 0^{\circ} \color[rgb]{ 0.4940, 0.1840,0.5560}\eta = 10^{\circ}'];
         end
-        title(titleStr);
+        % title(titleStr);
+        title({''})
         
         % Create textboxes
         annotation(nf, 'textbox', [0.144 0.843 0.257 0.038], ...

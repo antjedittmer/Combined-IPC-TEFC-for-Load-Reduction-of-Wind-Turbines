@@ -119,6 +119,8 @@ for idxL = 1:3
     axis tight; grid on;
     if lgIn == 1
         legend(lgCell,'Location', locCell{idxL},'Fontsize',fs-1)
+    elseif lgIn == 0
+        %no legend new default
     else
         legend(lgCell1,'Fontsize',fs-1,...
             'Location','northoutside','NumColumns',4)
