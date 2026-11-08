@@ -39,6 +39,8 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   - "TEF_KPKD": [K_P, K_D/opts.TEFKDScale] of the TEF controller (K_D
 %     scaled, default 0.01, so that both variables have a similar size), IPC
 %     on with opts.IPCGains
+%   - "IPC_KD": [K_P, K_I, K_D] of the IPC (PID: derivative of the
+%     moment input, not gain scheduled), TEF off
 %   - "IPC_TEF_KP": [K_P, K_I] of the IPC and K_P of the TEF controller
 %     together (TEF K_D = 0)
 %   The TEF K_I is opts.TEF_K_I (default 0). The baseline is always IPC and
@@ -77,7 +79,7 @@ def.FiniteDiffStep = 1e-2;                                                 % fmi
 def.SaveTimeSeries = false;                                                % save OutData of baseline and optimum
 def.InitialStep   = [];                                                   % fminsearch: size of the initial simplex in gain units (default: 5 % of x0)
 def.SeedAggregation = "max";                                               % several wind files: "max" or "mean" of the costs
-def.Vars          = "IPC";                                                  % "IPC", "TEF_KP", "TEF_KPKD" or "IPC_TEF_KP"
+def.Vars          = "IPC";                                                  % "IPC", "IPC_KD", "TEF_KP", "TEF_KPKD" or "IPC_TEF_KP"
 def.IPCGains      = [1.0959 0.2504];                                        % fixed IPC [K_P, K_I] for the TEF variants
 def.TEF_K_I       = 0;                                                      % TEF K_I (not optimized)
 def.TEFKDScale    = 0.01;                                                   % TEF_KPKD: K_D = x(2)*TEFKDScale
@@ -263,6 +265,7 @@ for r = 1:numel(opts.RateLimits)
     gOpt = gainsFromX(xOpt, opts);
     Results(r).K_P       = gOpt.ipc(1);
     Results(r).K_I       = gOpt.ipc(2);
+    Results(r).K_D       = ipcKD(gOpt);
     Results(r).TEF_K_P   = gOpt.tef(1);
     Results(r).TEF_K_I   = gOpt.tef(2);
     Results(r).TEF_K_D   = gOpt.tef(3);
@@ -285,6 +288,7 @@ for r = 1:numel(opts.RateLimits)
     writetable(History, fullfile(opts.ResultsFolder, sprintf('History_RL%02d.csv', rl)));
     save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'opts');
 
+    if numel(gOpt.ipc) > 2, fprintf('\nIPC K_D = %.6f', gOpt.ipc(3)); end
     fprintf('\nRate limit %g deg/s: K_P = %.6f, K_I = %.6f, TEF K_P = %.6f, K_I = %.6f, K_D = %.6f, cost = %.4f (%d evaluations)\n', ...
         rl, gOpt.ipc(1), gOpt.ipc(2), gOpt.tef(1), gOpt.tef(2), gOpt.tef(3), Jopt, output.funcCount);
     fprintf('  DEL RootMyc1..3: %+.1f %+.1f %+.1f %%, DEL TwrBsMyt: %+.1f %%, pitch ADC: %+.1f %%, power: %+.2f %%\n', ...
@@ -347,6 +351,9 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
             relx.RootMyc(1), relx.RootMyc(2), relx.RootMyc(3), relx.TwrBsMyt, relx.ADC, relx.Power, ...
             'VariableNames', {'Time', 'K_P', 'K_I', 'Cost', 'RelDEL_RootMyc1', 'RelDEL_RootMyc2', ...
             'RelDEL_RootMyc3', 'RelDEL_TwrBsMyt', 'RelADC', 'RelPower'});
+        if numel(g.ipc) > 2
+            row.K_D = g.ipc(3);
+        end
         if g.tefOn
             row.TEF_K_P = g.tef(1);
             row.TEF_K_I = g.tef(2);
@@ -360,12 +367,19 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
         end
         History = [History; row];
         fprintf('  K_P = %9.5f, K_I = %9.5f', g.ipc(1), g.ipc(2));
+        if numel(g.ipc) > 2, fprintf(', K_D = %9.5f', g.ipc(3)); end
         if g.tefOn, fprintf(', TEF K_P = %9.5f, K_D = %9.6f', g.tef(1), g.tef(3)); end
         fprintf(' -> J = %+.5f, tower %+.2f %%', J, 100*relx.TwrBsMyt);
         if nSeeds > 1, fprintf(' (seeds: %s)', sprintf('%+.4f ', Js)); end
         fprintf('\n');
         cache(key) = {J, relx};
     end
+end
+
+function kd = ipcKD(g)
+% K_D of the IPC (third element of g.ipc, 0 if not optimized)
+kd = 0;
+if numel(g.ipc) > 2, kd = g.ipc(3); end
 end
 
 function g = gainsFromX(x, opts)
@@ -378,6 +392,8 @@ switch opts.Vars
     case "TEF_KPKD"
         g = struct('ipcOn', 1, 'ipc', opts.IPCGains, 'tefOn', 1, ...
             'tef', [x(1), opts.TEF_K_I, x(2)*opts.TEFKDScale]);
+    case "IPC_KD"
+        g = struct('ipcOn', 1, 'ipc', x(1:3), 'tefOn', 0, 'tef', [0 0 0]);
     case "IPC_TEF_KP"
         g = struct('ipcOn', 1, 'ipc', x(1:2), 'tefOn', 1, 'tef', [x(3), opts.TEF_K_I, 0]);
     otherwise
@@ -391,6 +407,7 @@ function res = simulateIPC(mdl, SimConfig, g, opts)
 SimConfig.controller.IPC.IPC_Cotroller_switch = g.ipcOn;
 SimConfig.controller.IPC.K_P = g.ipc(1);
 SimConfig.controller.IPC.K_I = g.ipc(2);
+SimConfig.controller.IPC.K_D = ipcKD(g);                                  % 0 except for Vars "IPC_KD"
 SimConfig.controller.TEF.TEF_Cotroller_switch = g.tefOn;
 SimConfig.controller.TEF.K_P = g.tef(1);
 SimConfig.controller.TEF.K_I = g.tef(2);
