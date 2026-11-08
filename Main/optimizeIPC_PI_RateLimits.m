@@ -39,12 +39,15 @@ function Results = optimizeIPC_PI_RateLimits(opts)
 %   - "TEF_KPKD": [K_P, K_D/opts.TEFKDScale] of the TEF controller (K_D
 %     scaled, default 0.01, so that both variables have a similar size), IPC
 %     on with opts.IPCGains
+%   - "TEF_KPKI": [K_P, K_I] of the TEF controller (K_D = 0), IPC on with
+%     opts.IPCGains
 %   - "IPC_KD": [K_P, K_I, K_D] of the IPC (PID: derivative of the
 %     moment input, not gain scheduled), TEF off
 %   - "IPC_TEF_KP": [K_P, K_I] of the IPC and K_P of the TEF controller
 %     together (TEF K_D = 0)
-%   The TEF K_I is opts.TEF_K_I (default 0). The baseline is always IPC and
-%   TEF off, so the costs of all variants are comparable.
+%   The TEF K_I is opts.TEF_K_I (default 0) except for "TEF_KPKI". The
+%   baseline is always IPC and TEF off, so the costs of all variants are
+%   comparable.
 %
 %   opts.GainScheduling schedules the IPC K_P and K_I over the collective
 %   pitch command, as the gain scheduling of the baseline pitch controller:
@@ -76,12 +79,12 @@ def.lb            = [0 0];                                                 % fmi
 def.ub            = [2 2];
 def.TowerMaxRelDEL = 0;                                                    % fmincon: max. relative change of DEL TwrBsMyt
 def.FiniteDiffStep = 1e-2;                                                 % fmincon: finite difference step (relative)
-def.SaveTimeSeries = false;                                                % save OutData of baseline and optimum
+def.SaveTimeSeries = false;                                                % save OutData and flap angles of baseline and optimum
 def.InitialStep   = [];                                                   % fminsearch: size of the initial simplex in gain units (default: 5 % of x0)
 def.SeedAggregation = "max";                                               % several wind files: "max" or "mean" of the costs
-def.Vars          = "IPC";                                                  % "IPC", "IPC_KD", "TEF_KP", "TEF_KPKD" or "IPC_TEF_KP"
+def.Vars          = "IPC";                                                  % "IPC", "IPC_KD", "TEF_KP", "TEF_KPKD", "TEF_KPKI" or "IPC_TEF_KP"
 def.IPCGains      = [1.0959 0.2504];                                        % fixed IPC [K_P, K_I] for the TEF variants
-def.TEF_K_I       = 0;                                                      % TEF K_I (not optimized)
+def.TEF_K_I       = 0;                                                      % TEF K_I (not optimized, except for "TEF_KPKI")
 def.TEFKDScale    = 0.01;                                                   % TEF_KPKD: K_D = x(2)*TEFKDScale
 def.GainScheduling = [];                                                  % IPC gain scheduling (PitchAngles, FactorP, FactorI), [] = off
 fn = fieldnames(def);
@@ -368,7 +371,7 @@ save(fullfile(opts.ResultsFolder, 'Results.mat'), 'Results', 'Summary', 'opts');
         History = [History; row];
         fprintf('  K_P = %9.5f, K_I = %9.5f', g.ipc(1), g.ipc(2));
         if numel(g.ipc) > 2, fprintf(', K_D = %9.5f', g.ipc(3)); end
-        if g.tefOn, fprintf(', TEF K_P = %9.5f, K_D = %9.6f', g.tef(1), g.tef(3)); end
+        if g.tefOn, fprintf(', TEF K_P = %9.5f, K_I = %9.6f, K_D = %9.6f', g.tef(1), g.tef(2), g.tef(3)); end
         fprintf(' -> J = %+.5f, tower %+.2f %%', J, 100*relx.TwrBsMyt);
         if nSeeds > 1, fprintf(' (seeds: %s)', sprintf('%+.4f ', Js)); end
         fprintf('\n');
@@ -392,6 +395,8 @@ switch opts.Vars
     case "TEF_KPKD"
         g = struct('ipcOn', 1, 'ipc', opts.IPCGains, 'tefOn', 1, ...
             'tef', [x(1), opts.TEF_K_I, x(2)*opts.TEFKDScale]);
+    case "TEF_KPKI"
+        g = struct('ipcOn', 1, 'ipc', opts.IPCGains, 'tefOn', 1, 'tef', [x(1), x(2), 0]);
     case "IPC_KD"
         g = struct('ipcOn', 1, 'ipc', x(1:3), 'tefOn', 0, 'tef', [0 0 0]);
     case "IPC_TEF_KP"
@@ -423,6 +428,9 @@ try
     OutData = out.get('OutData');
     PitchCmd = out.get('PitchCmd');                                        % blade pitch command into FAST (deg)
     OutList = string(evalin('base', 'OutList'));
+    if opts.SaveTimeSeries
+        FlapAngles = out.get('Flap_Angles');                               % TEF deflection after the flap actuator model (deg)
+    end
     clear out
     Simulink.sdi.clear;                                                    % the Data Inspector repository in tempdir fills the disk otherwise
 catch ME
@@ -472,7 +480,7 @@ pitch1 = ch("BldPitch1");
 res.MeanPitch = mean(pitch1(idx));                                         % deg, blade 1, evaluation window
 res.x        = g;
 if opts.SaveTimeSeries
-    res.TS = struct('OutData', OutData, 'OutList', OutList);
+    res.TS = struct('OutData', OutData, 'OutList', OutList, 'FlapAngles', FlapAngles);
 end
 res.ok       = true;
 end
