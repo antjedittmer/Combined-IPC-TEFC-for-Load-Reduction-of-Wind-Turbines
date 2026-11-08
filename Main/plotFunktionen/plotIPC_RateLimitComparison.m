@@ -294,7 +294,7 @@ xlabel(ax(end), 'Time (s)');
 tightenTiles(ax); % x tick labels only at the bottom, no y tick labels at the limits
 posDefault = get(0, 'DefaultFigurePosition');
 set(gcf, 'Position', [posDefault(1), posDefault(2) - posDefault(4)*1.2, posDefault(3), posDefault(4)*2.3]);
-set(findall(gcf, '-property', 'FontSize'), 'FontSize', 12);
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', getTimeSeriesFontSize()); % default 13 (runGenerateAllThesisFigures)
 printFig(gcf, fnOut, [14.8 25.6]); % 560 x 966 px at 96 dpi
 end
 
