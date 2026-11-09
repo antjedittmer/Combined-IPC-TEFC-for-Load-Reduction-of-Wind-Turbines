@@ -384,14 +384,14 @@ end
 % Baseline 1P peak as text arrow, the other 1P and 2P peaks as filled
 % circles with their values in the line colours fanned out close to the
 % peaks, with 45 degree arrows (peakLabels, as plotIPC_PSD_Paper); headings
-% '1P peaks:' and '2P peaks:' at the top of the lower pane
+% 'Max. near 1P:' and 'Max. near 2P:' at the top of the lower pane
 Pall = [{Pb}, P];
 axTxt = axPanes(1);
 ylT = get(axTxt, 'YLim');
 xk = []; yk = []; ck = {};
 for n = 1:2
     iN = find(f >= 0.85*n*f1P & f <= 1.15*n*f1P);
-    hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('%dP peaks:', n), ...
+    hPk(end+1) = text(axTxt, n*f1P + 0.015, ylT(2) - 0.08*diff(ylT), sprintf('Max. near %dP:', n), ...
         'Color', [0.3 0.3 0.3], 'FontSize', fs); %#ok<AGROW>
     for r = 1:numel(Pall)
         [pv, i1] = max(Pall{r}(iN));

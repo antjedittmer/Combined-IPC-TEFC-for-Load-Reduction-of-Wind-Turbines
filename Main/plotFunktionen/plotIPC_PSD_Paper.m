@@ -29,7 +29,7 @@ function plotIPC_PSD_Paper(opts)
 %     FigDir       output folder (default plotFunktionen/figIPC_RateLimits)
 %     FigNames     file names, one per group (default
 %                  fig02_PSDroot_breaky_<file suffixes>)
-%     mP           figure height: 10 cm * mP/0.9 (default 0.9, i.e. 10 cm)
+%     mP           figure height: 10 cm * mP/0.9 (default 0.7, i.e. 7.8 cm)
 %     mW           figure width: 14.8 cm * mW (default 1, i.e. 14.8 cm as
 %                  the other thesis figures, so that the fonts of 12 pt
 %                  keep their size when the figures are scaled to the
@@ -45,6 +45,12 @@ function plotIPC_PSD_Paper(opts)
 %                  no time series needed)
 %     StyleIdx     colour/line style of each file or run (1 blue, 2 green,
 %                  3 red, 4 magenta; default: position within the group)
+%     PeakShift    manual shift of the peak value texts (several controllers
+%                  per group) after the automatic placement, one entry per
+%                  group (cell array; [] or missing: none): matrix with the
+%                  rows baseline, controllers of the group (in group order)
+%                  and the columns [dx1P, dy1P, dx2P, dy2P] in cm (right, up);
+%                  the baseline 1P entry is not used (text arrow)
 %
 %   Example, pitch rate limit comparison before the fade-in:
 %       ts = fullfile('..', 'Results_IPC_PI_RateLimitOpt', 'TimeSeries');
@@ -75,13 +81,14 @@ def.FMax         = 0.7;
 def.TStart       = 66;
 def.FigDir       = fullfile(plotDir, 'figIPC_RateLimits');
 def.FigNames     = [];
-def.mP           = 0.9;
+def.mP           = 0.7;
 def.mW           = 1;
 def.BaselineLabel = "";
 def.FontSizeNum  = 12;
 def.YSplit       = {};
 def.PSDFile      = "";
 def.StyleIdx     = [];
+def.PeakShift    = {};
 Q = [];
 if isfield(opts, 'PSDFile') && opts.PSDFile ~= ""
     S = load(opts.PSDFile, 'P');
@@ -243,21 +250,26 @@ for g = 1:numel(groups)
         % Several controllers: baseline 1P peak as text arrow, the other
         % peaks as filled circles with their values fanned out close to the
         % peaks, with 45 degree arrows (peakLabels; largest peak first);
-        % headings '1P peaks:' and '2P peaks:' at the top of the lower pane
+        % headings 'Max. near 1P:' and 'Max. near 2P:' at the top of the lower pane
         addArrow(axPanes, fpk(1,1), pk(1,1), sprintf('%2.2e', pk(1,1)), clAll{1}, fsN, 0);
         axLow = axPanes(1);
         ylL = get(axLow, 'YLim');
         dyL = 0.22*isscalar(axPanes);                                      % no split: below the baseline arrow
-        xk = []; yk = []; ck = {};
+        sh = zeros(nC + 1, 4);
+        if numel(opts.PeakShift) >= g && ~isempty(opts.PeakShift{g})
+            sh = opts.PeakShift{g};
+        end
+        xk = []; yk = []; ck = {}; dk = zeros(0, 2);
         for n = 1:2
             rows = (1 + (n == 1)):(nC + 1);                                % 1P: baseline peak is in the high pane
             [~, iS] = sort(pk(rows, n), 'descend');                        % largest peak on top
             rows = rows(iS);
             xk = [xk; fpk(rows,n)]; yk = [yk; pk(rows,n)]; ck = [ck, clAll(rows)]; %#ok<AGROW>
+            dk = [dk; sh(rows, 2*n-1:2*n)]; %#ok<AGROW>
             text(axLow, n*P.f1P + 0.03, ylL(2) - (dyL + 0.08)*diff(ylL), ...
-                sprintf('%dP peaks:', n), 'Color', [0.3 0.3 0.3], 'FontSize', fsN);
+                sprintf('Max. near %dP:', n), 'Color', [0.3 0.3 0.3], 'FontSize', fsN);
         end
-        peakLabels(axLow, xk, yk, compose('%2.2e', yk), ck, fsN);          % 1P and 2P together
+        peakLabels(axLow, xk, yk, compose('%2.2e', yk), ck, fsN, [], dk);  % 1P and 2P together
     end
 
     fnFig = fullfile(opts.FigDir, opts.FigNames(g));
