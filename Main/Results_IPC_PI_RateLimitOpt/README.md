@@ -225,6 +225,30 @@ seeds B and C (`FadeIn/RL08_IPC_KD_Seeds.csv`).
   percentage points on all three seeds, with practically the same tower DEL.
 - The pitch activity is 1.7 to 1.9 times that of the PI.
 
+### TEF with integral gain (`FadeIn/RL08_TEF_KPKI_*`)
+
+Joint optimization of K_P and K_I of the TEF controller (`Vars` = `"TEF_KPKI"`, TEF K_D = 0,
+8 deg/s, fade-in, optimization seed) with `runTEF_KPKI_FadeIn`. The IPC is fixed at the gains of
+`RL08_IPC_TEF_KP_fmincon` (K_P = 0.0820, K_I = 0.6694). fminsearch (InitialStep [0.2 0.1],
+36 evaluations) starts from the TEF K_P of that optimization and K_I = 0, then fmincon (bounds
+0..4) keeps the fminsearch point (constraint satisfied). The TEF integrator has no anti-windup.
+`checkTEF_KI_Flaps` re-simulates both points with the flap angles (`Flap_Angles`, after the flap
+actuator model) and writes `FadeIn/RL08_TEF_KPKI_Flaps.csv` (deflection from 66 s, band RMS from
+the Welch PSD in the rotating frame, 1P = 0.20 Hz).
+
+| TEF K_P / K_I | Worst blade root DEL | Tower DEL | Pitch ADC | Flap RMS | Flap RMS at 1P | Max. flap | Flap ADC |
+|---|---|---|---|---|---|---|---|
+| 0.641 / 0 | -22.69 % | -1.03 % | +266 % (1.72 deg/s) | 1.11 deg | 0.37 deg | 4.0 deg | 2.53 deg/s |
+| 0.719 / 0.160 | -22.79 % | -1.02 % | +233 % (1.56 deg/s) | 1.32 deg | 0.69 deg | 5.6 deg | 2.85 deg/s |
+
+- The cost is flat in K_I: near the optimum TEF K_P, K_I between 0.11 and 0.22 changes J only
+  between -0.2272 and -0.2279.
+  A negative K_I (-0.06) is worse (-22.4 %).
+- The integral gain shifts the 1P control effort (tilt/yaw moments) from the pitch to the flaps:
+  the pitch activity drops by 9 %, the flap deflection at 1P almost doubles and the flap ADC rises
+  by 12 %, for a blade DEL gain of only 0.1 percentage points. Neither point reaches the flap
+  limits (+-10 deg, +-20 deg/s). The TEF K_I is therefore not used.
+
 ## PSD plots (`TimeSeries`)
 
 `TimeSeries/TimeSeries_RL04.mat`, `_RL08.mat` and `_RL13.mat` contain the baseline and the
