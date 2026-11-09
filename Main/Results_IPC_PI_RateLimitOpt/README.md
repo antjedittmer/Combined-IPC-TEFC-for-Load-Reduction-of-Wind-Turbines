@@ -203,6 +203,28 @@ plotIPC_PSD_RateLimits(struct('Files', ...
 The re-simulations reproduce the costs of the optimization (e.g. -0.2053 at 13 deg/s, -0.2269 for
 IPC + TEF). The 8 and 13 deg/s PSDs lie on top of each other (almost identical gains).
 
+### IPC with derivative gain (`FadeIn/RL08_IPC_KD_*`)
+
+Joint optimization of K_P, K_I and K_D of the IPC (`Vars` = `"IPC_KD"`, TEF off, 8 deg/s, fade-in,
+optimization seed) with `runIPC_KD_FadeIn`: fminsearch (InitialStep [0.2 0.1 0.1], 64 evaluations)
+from the 8 deg/s fade-in gains and K_D = 0, then fmincon (bounds K_D -2..2), which keeps the
+fminsearch point (constraint satisfied). The derivative acts on the moment input without a filter
+and is not gain scheduled. `checkIPC_KD_Seeds` evaluates the PI and the PID gains on the test
+seeds B and C (`FadeIn/RL08_IPC_KD_Seeds.csv`).
+
+| Seed | IPC K_P / K_I / K_D | Worst blade root DEL | Tower DEL | Pitch ADC |
+|---|---|---|---|---|
+| A (optimization) | 1.222 / 0.370 / 0 | -20.6 % | -1.1 % | +409 % |
+| A (optimization) | 1.176 / 0.601 / 0.147 | -22.9 % | -0.9 % | +725 % |
+| B | 1.222 / 0.370 / 0 | -20.1 % | +3.4 % | +390 % |
+| B | 1.176 / 0.601 / 0.147 | -21.7 % | +3.5 % | +724 % |
+| C | 1.222 / 0.370 / 0 | -18.8 % | -0.7 % | +398 % |
+| C | 1.176 / 0.601 / 0.147 | -20.4 % | -0.2 % | +688 % |
+
+- With the fade-in, K_D does not go to zero: the PID reduces the blade DEL by a further 1.6 to 2.3
+  percentage points on all three seeds, with practically the same tower DEL.
+- The pitch activity is 1.7 to 1.9 times that of the PI.
+
 ## PSD plots (`TimeSeries`)
 
 `TimeSeries/TimeSeries_RL04.mat`, `_RL08.mat` and `_RL13.mat` contain the baseline and the
