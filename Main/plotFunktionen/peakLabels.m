@@ -1,4 +1,4 @@
-function peakLabels(ax, xP, yP, str, cl, fs, L)
+function peakLabels(ax, xP, yP, str, cl, fs, L, shift)
 %PEAKLABELS Peak values as texts with 45 degree arrows to the peaks
 %   peakLabels(ax, xP, yP, str, cl, fs) marks the peaks (xP(k), yP(k)) in
 %   the axes ax with filled circles and writes str{k} in the colour cl{k}
@@ -12,9 +12,13 @@ function peakLabels(ax, xP, yP, str, cl, fs, L)
 %   the 45 degree line, if needed also to the right; the clusters are
 %   placed in the order with the fewest clashes).
 %   peakLabels(..., L) sets the minimum arrow length in cm (default 1.2).
+%   peakLabels(..., L, shift) moves the texts after the automatic placement
+%   by shift(k,:) = [dx, dy] in cm (right, up; n x 2, default zeros), the
+%   arrows follow the texts.
 %   Call it after the axes position and limits are final.
 
 if nargin < 7 || isempty(L), L = 1.2; end
+if nargin < 8 || isempty(shift), shift = zeros(numel(xP), 2); end
 fig = ancestor(ax, 'figure');
 pxPerCm = get(groot, 'ScreenPixelsPerInch')/2.54;
 d0 = L*pxPerCm/sqrt(2);                                                    % x and y offset of the text (px)
@@ -58,6 +62,7 @@ for o = 1:size(orders, 1)
     score = nO*100 + sum(vecnorm(tO + [zeros(n,1), hT*belowO] - p, 2, 2));
     if score < nMin - 1e-9, t = tO; below = belowO; nMin = score; end
 end
+t = t + shift*pxPerCm;                                                     % manual fine adjustment
 
 for k = 1:n
     set(h(k), 'Position', [t(k,:) + [gap, 0], 0]);
