@@ -1,0 +1,22 @@
+% Created by makeSummaryFromWindSpeedTables from tab_IPC_windspeeds.tex on 2026-11-14
+\begin{table}[h]
+    \centering
+    \caption[Evaluation criteria for IPC: Mean values of the optimization and verification datasets over above-rated wind speed ranges]{\label{tab:IPC_summary} Evaluation criteria for IPC: Mean values of the optimization and verification datasets over above-rated wind speed ranges, normalized by the baseline PI without IPC; values below 1 indicate a reduction. IPC gains optimized at 18\,m/s with the pitch rate limit 8\textdegree/s: $K_{\text{P,IPC}} = 1.222$ and $K_{\text{I,IPC}} = 0.370$. Criteria are blade, tower base and tower top DELs, power mean and standard deviation, and pitch actuator power. The first verification set has no wind field for 13\,m/s.}
+    \begin{tabular}{@{}l*{8}{c}@{}}
+        \toprule
+        Wind speeds & Dataset & Turb. class & $C_{\text{DEL},b}$ & $C_{\text{DEL},t,\text{Base}}$ & $C_{\text{DEL},t,\text{Top}}$ & $C_{\bar{P}}$ & $C_{\delta P}$ & $C_{\text{Act}}$ \\
+        \midrule
+        \multirow{3}{*}{\begin{tabular}[c]{@{}l@{}}Above rated\\(12--25\,m/s)\end{tabular}} & Optim. & A & 0.77 & 1.00 & 0.93 & 1.00 & 1.02 & 5.36 \\
+         & Verif. 1 & A & 0.78 & 1.00 & 0.93 & 1.00 & 1.02 & 5.66 \\
+         & Verif. 2 & B & 0.79 & 1.01 & 0.93 & 1.00 & 1.01 & 5.44 \\
+        \midrule
+        \multirow{3}{*}{18--25\,m/s} & Optim. & A & 0.75 & 1.01 & 0.94 & 1.00 & 1.01 & 5.84 \\
+         & Verif. 1 & A & 0.76 & 1.01 & 0.95 & 1.00 & 1.01 & 5.97 \\
+         & Verif. 2 & B & 0.75 & 1.02 & 0.93 & 1.00 & 1.01 & 5.89 \\
+        \midrule
+        \multirow{3}{*}{18\,m/s} & Optim. & A & 0.80 & 1.00 & 0.90 & 1.00 & 1.00 & 5.04 \\
+         & Verif. 1 & A & 0.79 & 1.00 & 0.92 & 1.00 & 1.00 & 5.01 \\
+         & Verif. 2 & B & 0.80 & 1.06 & 0.91 & 1.00 & 1.00 & 5.01 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
