@@ -1,0 +1,45 @@
+% Created by makeIPCAALC_WindSpeedTables on 2026-11-14
+% Values per wind speed behind tab_IPC_summary.tex (makeIPC_SummaryTable), evaluation from 60 s
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \caption[Wind turbine evaluation criteria for IPC per wind speed]{\label{tab:IPC_windspeeds} Wind turbine evaluation criteria for IPC per mean wind speed for the optimization and verification datasets, normalized by the baseline without IPC (values behind Table~\ref{tab:IPC_summary}). IPC gains optimized at 18\,m/s with the pitch rate limit 8\textdegree/s for all wind speeds. Criteria are blade (sum of the three blades, W\"ohler exponent 10), tower base and tower top DELs (W\"ohler exponent 4), power mean and standard deviation. $P_{\text{Act},0}$ and $P_{\text{Act}}$ are the actuator powers (mean over the blades and time of $|\dot\beta\, M_z|$ in \textdegree/s\,kNm) of the baseline and the controller, $C_{\text{Act}}$ their ratio.}
+    \begin{adjustbox}{max width=\textwidth}
+    \begin{tabular}{@{}llr*{2}{r}*{5}{c}rrc@{}}
+        \toprule
+        & & & \multicolumn{2}{c}{Gains} & & & & & & & & \\
+        \cmidrule(lr){4-5}
+        Dataset & Turb. class & $v$ (m/s) & IPC $K_P$ & IPC $K_I$ & $C_{\text{DEL},b}$ & $C_{\text{DEL},t,\text{Base}}$ & $C_{\text{DEL},t,\text{Top}}$ & $C_{\bar{P}}$ & $C_{\delta P}$ & $P_{\text{Act},0}$ & $P_{\text{Act}}$ & $C_{\text{Act}}$ \\
+        \midrule
+        Optim. & A & 12 & 1.222 & 0.370 & 0.795 & 0.990 & 0.920 & 0.994 & 1.034 & 13.3 & 78.0 & 5.86 \\
+         &  & 13 & 1.222 & 0.370 & 0.795 & 0.990 & 0.914 & 0.997 & 1.047 & 17.5 & 78.4 & 4.49 \\
+         &  & 14 & 1.222 & 0.370 & 0.790 & 0.989 & 0.914 & 0.999 & 1.074 & 20.9 & 79.0 & 3.79 \\
+         &  & 16 & 1.222 & 0.370 & 0.798 & 0.995 & 0.909 & 1.000 & 0.997 & 19.6 & 85.8 & 4.39 \\
+         &  & 18 & 1.222 & 0.370 & 0.796 & 0.996 & 0.900 & 1.000 & 0.996 & 21.0 & 105.8 & 5.04 \\
+         &  & 20 & 1.222 & 0.370 & 0.751 & 1.009 & 0.921 & 1.000 & 0.999 & 23.6 & 128.5 & 5.45 \\
+         &  & 22 & 1.222 & 0.370 & 0.753 & 1.006 & 0.929 & 1.000 & 1.002 & 26.3 & 152.1 & 5.77 \\
+         &  & 24 & 1.222 & 0.370 & 0.729 & 1.009 & 0.960 & 1.000 & 1.013 & 28.7 & 178.7 & 6.22 \\
+         &  & 25 & 1.222 & 0.370 & 0.736 & 1.023 & 0.968 & 1.000 & 1.020 & 29.8 & 190.2 & 6.39 \\
+        \midrule
+        Verif. 1 & A & 12 & 1.222 & 0.370 & 0.853 & 0.965 & 0.913 & 0.996 & 1.015 & 11.8 & 72.8 & 6.18 \\
+         &  & 14 & 1.222 & 0.370 & 0.842 & 1.000 & 0.905 & 0.998 & 1.037 & 17.2 & 73.8 & 4.28 \\
+         &  & 16 & 1.222 & 0.370 & 0.804 & 1.007 & 0.892 & 1.000 & 1.033 & 18.3 & 83.2 & 4.54 \\
+         &  & 18 & 1.222 & 0.370 & 0.794 & 0.998 & 0.920 & 1.000 & 1.003 & 20.3 & 101.7 & 5.01 \\
+         &  & 20 & 1.222 & 0.370 & 0.745 & 0.992 & 0.907 & 1.000 & 0.999 & 22.1 & 124.6 & 5.65 \\
+         &  & 22 & 1.222 & 0.370 & 0.730 & 1.011 & 0.905 & 1.000 & 1.004 & 24.7 & 148.9 & 6.02 \\
+         &  & 24 & 1.222 & 0.370 & 0.724 & 1.015 & 0.954 & 1.000 & 1.014 & 27.3 & 172.5 & 6.31 \\
+         &  & 25 & 1.222 & 0.370 & 0.785 & 1.028 & 1.083 & 1.000 & 1.022 & 28.6 & 186.8 & 6.54 \\
+        \midrule
+        Verif. 2 & B & 12 & 1.222 & 0.370 & 0.887 & 1.007 & 0.937 & 0.997 & 1.005 & 11.7 & 62.3 & 5.31 \\
+         &  & 13 & 1.222 & 0.370 & 0.837 & 0.996 & 0.935 & 0.998 & 1.015 & 14.2 & 63.0 & 4.43 \\
+         &  & 14 & 1.222 & 0.370 & 0.843 & 1.006 & 0.926 & 0.999 & 1.028 & 15.5 & 66.0 & 4.26 \\
+         &  & 16 & 1.222 & 0.370 & 0.835 & 1.001 & 0.907 & 1.000 & 1.023 & 16.6 & 73.8 & 4.44 \\
+         &  & 18 & 1.222 & 0.370 & 0.798 & 1.059 & 0.909 & 1.000 & 0.999 & 18.1 & 90.6 & 5.01 \\
+         &  & 20 & 1.222 & 0.370 & 0.732 & 0.998 & 0.927 & 1.000 & 1.002 & 20.1 & 110.9 & 5.52 \\
+         &  & 22 & 1.222 & 0.370 & 0.729 & 1.000 & 0.914 & 1.000 & 1.005 & 22.7 & 131.7 & 5.81 \\
+         &  & 24 & 1.222 & 0.370 & 0.747 & 1.009 & 0.938 & 1.000 & 1.011 & 24.6 & 154.7 & 6.28 \\
+         &  & 25 & 1.222 & 0.370 & 0.740 & 1.021 & 0.956 & 1.000 & 1.013 & 25.7 & 167.1 & 6.50 \\
+        \bottomrule
+    \end{tabular}
+    \end{adjustbox}
+\end{table}
